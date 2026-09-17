@@ -96,11 +96,11 @@
   "main": "eslint.config.js",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/sergilozada/control_bienesraices.git"
+    "url": "git+https://github.com/sergilozada/control-san-bartolomeo.git"
   },
   "keywords": [],
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/sergilozada/control_bienesraices/issues"
+    "url": "https://github.com/sergilozada/control-san-bartolomeo/issues"
   }
 }

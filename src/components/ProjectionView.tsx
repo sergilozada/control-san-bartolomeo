@@ -9,9 +9,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { CalendarIcon, Download } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
 import { toast } from 'sonner';
+import { downloadProjectionPdf, type ProjectionRow } from '@/features/projection/projectionPdf';
 
 export default function ProjectionView() {
   const { clients } = useAuth();
@@ -19,6 +18,10 @@ export default function ProjectionView() {
   const [rangeStart, setRangeStart] = useState<Date>(new Date());
   const [rangeEnd, setRangeEnd] = useState<Date>(new Date());
   const [showMonthlyProjections, setShowMonthlyProjections] = useState(false);
+  const localDate = (iso: string) => {
+    const [year, month, day] = iso.slice(0, 10).split('-').map(Number);
+    return new Date(year, month - 1, day);
+  };
 
   const getMonthProjection = (date: Date) => {
     const month = date.getMonth();
@@ -32,7 +35,7 @@ export default function ProjectionView() {
         client.cuotas.forEach(cuota => {
           // Excluir iniciales (número 0) de la proyección
           if (cuota.numero > 0) {
-            const vencimiento = new Date(cuota.vencimiento);
+            const vencimiento = localDate(cuota.vencimiento);
             if (vencimiento.getMonth() === month && vencimiento.getFullYear() === year) {
               totalCuotas++;
               totalProyectado += cuota.monto;
@@ -62,7 +65,7 @@ export default function ProjectionView() {
       clients.forEach(client => {
         client.cuotas?.forEach(cuota => {
           if (cuota.numero > 0) {
-            const vencimiento = new Date(cuota.vencimiento);
+            const vencimiento = localDate(cuota.vencimiento);
             if (vencimiento.getFullYear() === year && vencimiento.getMonth() === month) {
               totalCuotas++;
               totalProyectado += cuota.monto;
@@ -96,187 +99,37 @@ export default function ProjectionView() {
     return projections;
   };
 
-  const fetchImageAsDataURL = async (url: string) => {
-    try {
-      const res = await fetch(url);
-      if (!res.ok) return null;
-      const blob = await res.blob();
-      return await new Promise<string | null>((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.onerror = () => resolve(null);
-        reader.readAsDataURL(blob);
-      });
-    } catch (e) {
-      return null;
-    }
-  };
-
   const exportToPDF = async (type: 'month' | 'range' | 'monthly') => {
-    const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.getWidth();
-
-    // Try to fetch and embed the logo across the top (edge-to-edge within margins)
-    let titleY = 20;
     try {
-      const logoData = await fetchImageAsDataURL('/logo.jpeg');
-      if (logoData) {
-        try {
-          const imgProps = (doc as any).getImageProperties(logoData);
-          const imgW = pageWidth - 20; // 10mm margin each side
-          const imgH = (imgProps.height * imgW) / imgProps.width;
-          doc.addImage(logoData, 'JPEG', 10, 6, imgW, imgH);
-          titleY = 6 + imgH + 8;
-        } catch (err) {
-          console.error('Error adding logo to projection PDF:', err);
-        }
-      }
-    } catch (err) {
-      console.error('Logo fetch error', err);
-    }
-
-    // Encabezado
-    doc.setFontSize(20);
-    doc.text('PROYECCIÓN DE INGRESOS', pageWidth / 2, titleY, { align: 'center' });
-
-    // Use contentStartY relative to the title/logo so content never overlaps the logo
-    const contentStartY = titleY + 10;
-
-    try {
+      let subtitle: string;
+      let rows: ProjectionRow[];
       if (type === 'month') {
         const projection = getMonthProjection(selectedDate);
-        doc.setFontSize(14);
-        doc.text(`${format(selectedDate, 'MMMM yyyy', { locale: es })}`, pageWidth / 2, contentStartY, { align: 'center' });
-        
-        doc.setFontSize(12);
-        doc.text(`Número de cuotas: ${projection.totalCuotas}`, 20, contentStartY + 16);
-        doc.text(`Total proyectado: S/ ${projection.totalProyectado.toFixed(2)}`, 20, contentStartY + 26);
+        subtitle = format(selectedDate, 'MMMM yyyy', { locale: es });
+        rows = [{ month: subtitle, installments: projection.totalCuotas, amount: projection.totalProyectado }];
       } else if (type === 'range') {
-        const projections = getRangeProjection(rangeStart, rangeEnd);
-        doc.setFontSize(14);
-        doc.text(`${format(rangeStart, 'MMMM yyyy', { locale: es })} - ${format(rangeEnd, 'MMMM yyyy', { locale: es })}`, pageWidth / 2, contentStartY, { align: 'center' });
-
-        const tableData = projections.map(p => [
-          p.monthLabel,
-          p.totalCuotas.toString(),
-          `S/ ${p.totalProyectado.toFixed(2)}`
-        ]);
-
-        const anyDoc = doc as jsPDF & { autoTable?: (options: any) => any };
-        if (typeof anyDoc.autoTable === 'function') {
-          anyDoc.autoTable({
-            startY: contentStartY + 12,
-            head: [['Mes', 'Núm. de Cuotas', 'Total Proyectado']],
-            body: tableData,
-            theme: 'grid',
-            styles: { fontSize: 10 }
-          });
-        } else {
-          // fallback: draw a proper table with blue header and borders
-          const pageW = pageWidth;
-          const pageH = doc.internal.pageSize.getHeight();
-          const margin = 10;
-          const contentW = pageW - margin * 2;
-          const startX = margin;
-          let y = contentStartY + 12;
-          const rowH = 8;
-
-          // Column widths: 60% / 20% / 20%
-          const colWidths = [contentW * 0.6, contentW * 0.2, contentW * 0.2];
-
-          const drawHeader = () => {
-            // header background
-            doc.setFillColor(14, 165, 233); // blue-ish
-            doc.rect(startX, y, colWidths[0] + colWidths[1] + colWidths[2], rowH, 'F');
-            doc.setTextColor(255, 255, 255);
-            doc.setFontSize(10);
-            doc.text('Mes', startX + 3, y + 6);
-            doc.text('Número de Cuotas', startX + colWidths[0] + 3, y + 6);
-            doc.text('Total Proyectado', startX + colWidths[0] + colWidths[1] + 3, y + 6);
-            // header bottom border
-            doc.setDrawColor(0, 0, 0);
-            doc.rect(startX, y, colWidths[0] + colWidths[1] + colWidths[2], rowH, 'S');
-            y += rowH;
-            doc.setTextColor(0, 0, 0);
-          };
-
-          const drawRow = (row: string[]) => {
-            // page break if needed
-            if (y + rowH > pageH - margin) {
-              doc.addPage();
-              y = margin;
-              drawHeader();
-            }
-
-            // draw cell borders
-            let x = startX;
-            for (let i = 0; i < colWidths.length; i++) {
-              doc.rect(x, y, colWidths[i], rowH, 'S');
-              // text
-              const text = row[i] ?? '';
-              doc.setFontSize(10);
-              // wrap/clip long text -- use splitTextToSize for month label
-              if (i === 0) {
-                const lines = (doc as any).splitTextToSize(text, colWidths[i] - 6);
-                for (let li = 0; li < lines.length && li < 2; li++) {
-                  doc.text(lines[li], x + 3, y + 5 + li * 4);
-                }
-              } else {
-                doc.text(text, x + 3, y + 6);
-              }
-              x += colWidths[i];
-            }
-            y += rowH;
-          };
-
-          // draw header then rows
-          drawHeader();
-          tableData.forEach(row => drawRow(row));
+        if (new Date(rangeStart.getFullYear(), rangeStart.getMonth(), 1) >
+          new Date(rangeEnd.getFullYear(), rangeEnd.getMonth(), 1)) {
+          toast.error('La fecha inicial debe ser anterior a la final.');
+          return;
         }
-      } else if (type === 'monthly') {
-        const projections = getMonthlyProjections();
-        doc.setFontSize(14);
-        doc.text('Proyección mes a mes (próximos 12 meses)', pageWidth / 2, contentStartY, { align: 'center' });
-        
-        const tableData = projections.map((projection) => [
-          projection.month,
-          projection.totalCuotas.toString(),
-          `S/ ${projection.totalProyectado.toFixed(2)}`
-        ]);
-
-        const anyDoc = doc as jsPDF & { autoTable?: (options: any) => any };
-        if (typeof anyDoc.autoTable === 'function') {
-          anyDoc.autoTable({
-            startY: contentStartY + 12,
-            head: [['Mes', 'Número de Cuotas', 'Total Proyectado']],
-            body: tableData,
-            theme: 'grid',
-            styles: { fontSize: 10 }
-          });
-        } else {
-          let y = contentStartY + 12;
-          doc.setFontSize(10);
-          tableData.forEach(row => {
-            doc.text(row.join(' | '), 20, y);
-            y += 8;
-            if (y > doc.internal.pageSize.getHeight() - 20) { doc.addPage(); y = 20; }
-          });
-        }
+        subtitle = `${format(rangeStart, 'MMMM yyyy', { locale: es })} - ${format(rangeEnd, 'MMMM yyyy', { locale: es })}`;
+        rows = getRangeProjection(rangeStart, rangeEnd).map(item => ({
+          month: item.monthLabel, installments: item.totalCuotas, amount: item.totalProyectado,
+        }));
+      } else {
+        subtitle = 'Próximos 12 meses';
+        rows = getMonthlyProjections().map(item => ({
+          month: item.month, installments: item.totalCuotas, amount: item.totalProyectado,
+        }));
       }
-    } catch (err) {
-      console.error('Projection export error', err);
-      toast.error('Ocurrió un error al generar el PDF. Revise la consola.');
-    } finally {
-      try {
-        doc.save(`proyeccion_${type}_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
-        toast.success('PDF descargado exitosamente');
-      } catch (err) {
-        console.error('Error saving projection PDF', err);
-        toast.error('No se pudo descargar el PDF. Revisa la consola.');
-      }
+      await downloadProjectionPdf(type, subtitle, rows);
+      toast.success('PDF descargado exitosamente');
+    } catch (error) {
+      console.error('No se pudo generar la proyección:', error);
+      toast.error('No se pudo generar el PDF con el logo.');
     }
   };
-
   const monthProjection = getMonthProjection(selectedDate);
   const rangeProjection = getRangeProjection(rangeStart, rangeEnd);
   const monthlyProjections = getMonthlyProjections();

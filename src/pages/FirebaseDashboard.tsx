@@ -32,6 +32,7 @@ import { MinutasWorkspace } from '@/features/minutas';
 import AuditLog from '@/components/AuditLog';
 import type { Titular } from '@/types/client';
 import { getClientDisplayDnis, getClientDisplayName } from '@/types/client';
+import { canManageClients, canManageMinutes, canRegisterPayments, canViewAnalytics, roleLabel } from '@/config/permissions';
 
 interface Client {
   id: string;
@@ -81,10 +82,9 @@ const menuItems = [
 ];
 
 export default function FirebaseDashboard({ demo = false }: { demo?: boolean }) {
-  const alternateDesign = new URLSearchParams(window.location.search).get('design') === 'alt';
   const { logout, user, clients, searchClients, setSelectedClientId } = useAuth();
   const [activeTab, setActiveTab] = useState('inicio');
-  const [navigationOpen, setNavigationOpen] = useState(alternateDesign);
+  const [navigationOpen, setNavigationOpen] = useState(true);
   const [showNewClient, setShowNewClient] = useState(false);
   const [minuteClientId, setMinuteClientId] = useState<string | null>(null);
   const [searchManzana, setSearchManzana] = useState('');
@@ -147,6 +147,7 @@ export default function FirebaseDashboard({ demo = false }: { demo?: boolean }) 
   };
 
   const createMinuteForClient = (clientId: string) => {
+    if (!canManageMinutes(user?.role)) return;
     setMinuteClientId(clientId);
     setActiveTab('minutas');
   };
@@ -179,14 +180,8 @@ export default function FirebaseDashboard({ demo = false }: { demo?: boolean }) 
   ];
 
   return (
-    <div className={`vh-dashboard-shell min-h-screen bg-[#f2f1ec] text-[#182033] ${alternateDesign ? 'sb-design-alt' : ''}`}>
-      {demo && <div className="sb-demo-banner flex flex-wrap items-center justify-center gap-x-4 gap-y-1 bg-[#ffedcc] px-4 py-2 text-center text-sm font-medium text-[#69430d]">
-        <span>Vista previa local · datos ficticios · los cambios no se guardan</span>
-        <span className="inline-flex gap-1 rounded-full border border-[#d2b97e] bg-white/80 p-0.5 text-xs">
-          <a href="/?demo" aria-current={!alternateDesign ? 'page' : undefined} className={`rounded-full px-3 py-1 ${!alternateDesign ? 'bg-[#33204f] text-white' : 'text-[#33204f]'}`}>Diseño actual</a>
-          <a href="/?demo&design=alt" aria-current={alternateDesign ? 'page' : undefined} className={`rounded-full px-3 py-1 ${alternateDesign ? 'bg-[#33204f] text-white' : 'text-[#33204f]'}`}>Diseño propuesto</a>
-        </span>
-      </div>}
+    <div className="vh-dashboard-shell sb-design-alt min-h-screen bg-[#f2f1ec] text-[#182033]">
+      {demo && <div className="sb-demo-banner bg-[#ffedcc] px-4 py-2 text-center text-sm font-medium text-[#69430d]">Vista previa local · datos ficticios · los cambios no se guardan</div>}
       <header className="vh-header-enter sticky top-0 z-40 border-b border-[#d9ddd9]/90 bg-[#fffefb]/95 backdrop-blur-xl">
         <div className="flex h-16 w-full items-center justify-between gap-2 px-2.5 sm:gap-4 sm:px-5 lg:px-6">
           <button
@@ -212,7 +207,7 @@ export default function FirebaseDashboard({ demo = false }: { demo?: boolean }) 
           <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-3">
             <span className="inline-flex min-h-9 items-center gap-2 rounded-full border border-[#c7ddd9] bg-[#f7f2fb] px-2.5 text-xs font-semibold text-[#33204f] sm:px-3 sm:text-sm">
               <span className="h-2 w-2 rounded-full bg-[#54317f]" aria-hidden="true" />
-              {user?.role === 'admin' ? 'Admin' : user?.username || 'Usuario'}
+              {user?.role ? roleLabel[user.role] : 'Usuario'}
             </span>
             <Button
               variant="outline"
@@ -268,7 +263,13 @@ export default function FirebaseDashboard({ demo = false }: { demo?: boolean }) 
             className={`vh-mobile-menu mt-4 min-h-0 flex-1 flex-col ${navigationOpen ? 'flex' : 'hidden lg:flex'}`}
           >
               <TabsList aria-label="Secciones del panel" className="flex h-auto w-full flex-col justify-start gap-1 overflow-visible bg-transparent p-0">
-                {menuItems.filter(item => item.id !== 'auditoria' || user?.role === 'admin').map(item => {
+                {menuItems.filter(item => {
+                  if (['proyeccion', 'estadisticas', 'reporte', 'auditoria'].includes(item.id)) return canViewAnalytics(user?.role);
+                  if (item.id === 'minutas') return canManageMinutes(user?.role);
+                  if (item.id === 'pendientes') return canRegisterPayments(user?.role);
+                  if (item.id === 'atrasados') return canRegisterPayments(user?.role) || canManageMinutes(user?.role);
+                  return true;
+                }).map(item => {
                   const Icon = item.icon;
                   return (
                     <TabsTrigger
@@ -312,7 +313,7 @@ export default function FirebaseDashboard({ demo = false }: { demo?: boolean }) 
                     Gestiona la cartera del proyecto, revisa compromisos de pago y centraliza los documentos de cada propietario.
                   </p>
                 </div>
-                {user?.role !== 'readonly' && <Button
+                {canManageClients(user?.role) && <Button
                   size="lg"
                   className="vh-primary-action min-h-11 bg-[#5c3585] text-white shadow-lg shadow-[#261838]/25 hover:bg-[#54317f]"
                   onClick={() => setShowNewClient(true)}
@@ -324,7 +325,9 @@ export default function FirebaseDashboard({ demo = false }: { demo?: boolean }) 
             </section>
 
             <section aria-label="Indicadores principales" className="grid grid-cols-1 gap-3 md:grid-cols-3">
-              {statCards.map((stat, index) => {
+              {statCards.filter(stat => stat.label === 'Clientes activos' ||
+                (stat.label === 'Pendientes este mes' && canRegisterPayments(user?.role)) ||
+                (stat.label === 'Pagos atrasados' && (canRegisterPayments(user?.role) || canManageMinutes(user?.role)))).map((stat, index) => {
                 const Icon = stat.icon;
                 return (
                   <button
@@ -422,7 +425,7 @@ export default function FirebaseDashboard({ demo = false }: { demo?: boolean }) 
                                 <TableCell><Badge variant="outline">{getClientStatus(client)}</Badge></TableCell>
                                 <TableCell>
                                   <div className="flex justify-end gap-2">
-                                    <MinutaUploadButton clientId={client.id} clientName={getClientDisplayName(client)} onCreate={createMinuteForClient} />
+                                    {canManageMinutes(user?.role) && <MinutaUploadButton clientId={client.id} clientName={getClientDisplayName(client)} onCreate={createMinuteForClient} />}
                                     <Button size="sm" variant="ghost" onClick={() => openClient(client.id)}>Ver cliente</Button>
                                   </div>
                                 </TableCell>
@@ -445,21 +448,21 @@ export default function FirebaseDashboard({ demo = false }: { demo?: boolean }) 
           </TabsContent>
 
           <TabsContent value="clientes" className="vh-tab-enter mt-0"><ClientList onCreateMinute={createMinuteForClient} /></TabsContent>
-          <TabsContent value="minutas" className="vh-tab-enter mt-0"><MinutasWorkspace initialClientId={minuteClientId} /></TabsContent>
+          {canManageMinutes(user?.role) && <TabsContent value="minutas" className="vh-tab-enter mt-0"><MinutasWorkspace initialClientId={minuteClientId} /></TabsContent>}
           {user?.role === 'admin' && <TabsContent value="auditoria" className="vh-tab-enter mt-0"><AuditLog /></TabsContent>}
-          <TabsContent value="proyeccion" className="vh-tab-enter mt-0"><ProjectionView /></TabsContent>
-          <TabsContent value="estadisticas" className="vh-tab-enter mt-0"><StatsView /></TabsContent>
-          <TabsContent value="reporte" className="vh-tab-enter mt-0"><StatsView showReport /></TabsContent>
-          <TabsContent value="pendientes" className="vh-tab-enter mt-0">
+          {canViewAnalytics(user?.role) && <TabsContent value="proyeccion" className="vh-tab-enter mt-0"><ProjectionView /></TabsContent>}
+          {canViewAnalytics(user?.role) && <TabsContent value="estadisticas" className="vh-tab-enter mt-0"><StatsView /></TabsContent>}
+          {canViewAnalytics(user?.role) && <TabsContent value="reporte" className="vh-tab-enter mt-0"><StatsView showReport /></TabsContent>}
+          {canRegisterPayments(user?.role) && <TabsContent value="pendientes" className="vh-tab-enter mt-0">
             <Card><CardHeader><CardTitle className="text-xl">Cuotas pendientes este mes</CardTitle><CardDescription>Clientes con compromisos próximos dentro del mes actual.</CardDescription></CardHeader><CardContent><ClientList filterType="pending" /></CardContent></Card>
-          </TabsContent>
-          <TabsContent value="atrasados" className="vh-tab-enter mt-0">
+          </TabsContent>}
+          {(canRegisterPayments(user?.role) || canManageMinutes(user?.role)) && <TabsContent value="atrasados" className="vh-tab-enter mt-0">
             <Card><CardHeader><CardTitle className="text-xl">Clientes con cuotas atrasadas</CardTitle><CardDescription>Pagos vencidos que requieren seguimiento.</CardDescription></CardHeader><CardContent><ClientList filterType="overdue" /></CardContent></Card>
-          </TabsContent>
+          </TabsContent>}
         </main>
       </Tabs>
 
-      {showNewClient && user?.role !== 'readonly' && <FirebaseClientForm onClose={() => setShowNewClient(false)} />}
+      {showNewClient && canManageClients(user?.role) && <FirebaseClientForm onClose={() => setShowNewClient(false)} />}
     </div>
   );
 }

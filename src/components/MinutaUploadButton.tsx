@@ -5,6 +5,7 @@ import { deleteObject, getDownloadURL, getMetadata, listAll, ref as storageRef, 
 import { storage } from '@/services/firebase';
 import { useAuth } from '@/context/FirebaseAuthContext';
 import { updateClientWithAudit } from '@/services/audit';
+import { canManageMinutes } from '@/config/permissions';
 import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
@@ -94,7 +95,7 @@ export default function MinutaUploadButton({ clientId, clientName, onCreate }: M
     const file = event.target.files?.[0];
     event.target.value = '';
     if (!file) return;
-    if (!firebaseUser || user?.role === 'readonly') return;
+    if (!firebaseUser || !canManageMinutes(user?.role)) return;
 
     const extension = file.name.split('.').pop()?.toLowerCase() || '';
     if (!ACCEPTED_EXTENSIONS.includes(extension)) {
@@ -119,7 +120,7 @@ export default function MinutaUploadButton({ clientId, clientName, onCreate }: M
       try {
         await updateClientWithAudit(firebaseUser, clientId, {
           lastDocumentEvent: { action: 'subir', name: file.name, at: new Date().toISOString() },
-        }, `Minuta subida: ${file.name}`);
+        }, `Minuta subida: ${file.name}`, 'minuta_documento');
       } catch (auditError) {
         console.error('La minuta se subió sin registrar el historial:', auditError);
         toast.warning('Minuta subida, pero no se pudo registrar en el historial');
@@ -137,7 +138,7 @@ export default function MinutaUploadButton({ clientId, clientName, onCreate }: M
 
   const handleDeleteMinute = async () => {
     if (!minuteToDelete) return;
-    if (!firebaseUser || user?.role === 'readonly') return;
+    if (!firebaseUser || !canManageMinutes(user?.role)) return;
 
     setDeleting(true);
     try {
@@ -145,7 +146,7 @@ export default function MinutaUploadButton({ clientId, clientName, onCreate }: M
       try {
         await updateClientWithAudit(firebaseUser, clientId, {
           lastDocumentEvent: { action: 'eliminar', name: minuteToDelete.name, at: new Date().toISOString() },
-        }, `Minuta eliminada: ${minuteToDelete.name}`);
+        }, `Minuta eliminada: ${minuteToDelete.name}`, 'minuta_documento');
       } catch (auditError) {
         console.error('La minuta se eliminó sin registrar el historial:', auditError);
         toast.warning('Minuta eliminada, pero no se pudo registrar en el historial');
@@ -198,7 +199,7 @@ export default function MinutaUploadButton({ clientId, clientName, onCreate }: M
             onChange={handleFileChange}
           />
 
-          {!preview && user?.role !== 'readonly' && <button
+          {!preview && canManageMinutes(user?.role) && <button
             type="button"
             onClick={() => inputRef.current?.click()}
             disabled={uploading}
@@ -252,7 +253,7 @@ export default function MinutaUploadButton({ clientId, clientName, onCreate }: M
                       </span>
                       <ExternalLink className="h-4 w-4 shrink-0 text-[#9aa29a] group-hover:text-[#5c3585]" />
                     </a>
-                    {user?.role !== 'readonly' && <Button
+                    {canManageMinutes(user?.role) && <Button
                       type="button"
                       size="icon"
                       variant="ghost"

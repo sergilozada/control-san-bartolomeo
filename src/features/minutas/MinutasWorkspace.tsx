@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { collection, onSnapshot } from 'firebase/firestore';
-import { FileDown, FilePlus2, Save, Search, UserRoundPlus } from 'lucide-react';
+import { EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
+import { FileDown, FilePlus2, Home, LockKeyhole, LogOut, Save, Search, UserRoundPlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/context/FirebaseAuthContext';
 import { db } from '@/services/firebase';
+import { canManageMinutes } from '@/config/permissions';
 import { getClientDisplayName, getClientTitulares } from '@/types/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -27,6 +29,11 @@ export default function MinutasWorkspace({ initialClientId }: { initialClientId?
   const [editingId, setEditingId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [busy, setBusy] = useState(false);
+  const [unlocked, setUnlocked] = useState(false);
+  const [workspaceView, setWorkspaceView] = useState<'home' | 'records'>(initialClientId ? 'records' : 'home');
+  const [password, setPassword] = useState('');
+  const [loginError, setLoginError] = useState('');
+  const [loginBusy, setLoginBusy] = useState(false);
   const [loadError, setLoadError] = useState('');
   const prefilledClient = useRef<string | null>(null);
   const selectedClient = clients.find(client => client.id === draft.clientId);
@@ -34,13 +41,13 @@ export default function MinutasWorkspace({ initialClientId }: { initialClientId?
     ? buildSchedule(draft) : [];
 
   useEffect(() => {
-    if (preview || !user) return;
+    if (preview || !user || !unlocked || !canManageMinutes(user.role)) return;
     return onSnapshot(collection(db, 'minutes'), snapshot => {
       setRecords(snapshot.docs.map(item => ({ id: item.id, ...item.data() } as MinuteRecord))
         .sort((a, b) => (b.updatedAt?.toDate().getTime() || 0) - (a.updatedAt?.toDate().getTime() || 0)));
       setLoadError('');
     }, () => setLoadError('No se pudieron cargar las minutas. Revisa la conexión y los permisos.'));
-  }, [preview, user]);
+  }, [preview, user, unlocked]);
 
   const fillFromClient = (clientId: string) => {
     const client = clients.find(item => item.id === clientId);
@@ -90,7 +97,7 @@ export default function MinutasWorkspace({ initialClientId }: { initialClientId?
       toast.success('Borrador guardado en esta vista de muestra');
       return id;
     }
-    if (!firebaseUser || user?.role === 'readonly') { toast.error('No tienes permiso para guardar minutas.'); return null; }
+    if (!firebaseUser || !canManageMinutes(user?.role) || !unlocked) { toast.error('No tienes permiso para guardar minutas.'); return null; }
     if (editingId) {
       await updateMinute(firebaseUser, editingId, draft);
       toast.success('Borrador actualizado');
@@ -116,7 +123,7 @@ export default function MinutasWorkspace({ initialClientId }: { initialClientId?
     try {
       const { createMinuteDocument } = await import('./minuteDocument');
       const blob = await createMinuteDocument(draft);
-      if (!preview && firebaseUser && user?.role !== 'readonly' && selectedClient) {
+      if (!preview && firebaseUser && canManageMinutes(user?.role) && unlocked && selectedClient) {
         let id = editingId;
         if (!id) id = await createMinute(firebaseUser, draft, getClientDisplayName(selectedClient));
         await updateMinute(firebaseUser, id, draft, 'minuta_generar');
@@ -139,9 +146,68 @@ export default function MinutasWorkspace({ initialClientId }: { initialClientId?
 
   const visibleRecords = records.filter(record =>
     `${record.reference} ${record.clientName} ${record.draft.block} ${record.draft.lot}`.toLowerCase().includes(search.toLowerCase()));
-  const canEdit = preview || user?.role !== 'readonly';
+  const canEdit = preview || canManageMinutes(user?.role);
+
+  const handleLogin = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (preview) { setUnlocked(true); setWorkspaceView(initialClientId ? 'records' : 'home'); return; }
+    if (!firebaseUser?.email || !canManageMinutes(user?.role) || !password) return;
+    setLoginBusy(true);
+    setLoginError('');
+    try {
+      await reauthenticateWithCredential(firebaseUser, EmailAuthProvider.credential(firebaseUser.email, password));
+      setPassword('');
+      setUnlocked(true);
+      setWorkspaceView(initialClientId ? 'records' : 'home');
+    } catch (error) {
+      console.error('No se pudo abrir Minutas:', error);
+      setLoginError('No se pudo verificar la contraseña de esta cuenta.');
+    } finally { setLoginBusy(false); }
+  };
+
+  if (!canManageMinutes(user?.role)) return <div className="rounded-2xl border bg-white p-8 text-center">El acceso a Minutas corresponde al administrador y al área legal.</div>;
+  if (!unlocked) return <div className="mx-auto grid min-h-[65vh] max-w-5xl overflow-hidden rounded-3xl border border-[#ded7e5] bg-white shadow-xl lg:grid-cols-2">
+    <section className="flex flex-col justify-end bg-[#33204f] p-8 text-white sm:p-10" style={{ backgroundImage: 'linear-gradient(135deg, #33204fdd, #165b66dd), url(/brand/san-bartolomeo-hero.jpeg)', backgroundSize: 'cover', backgroundPosition: 'center' }}>
+      <img src="/brand/san-bartolomeo-logo.jpeg" alt="San Bartolomeo Inmobiliaria" className="mb-auto h-20 w-56 rounded-xl bg-white object-cover" />
+      <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#ffc17c]">Área legal</p>
+      <h1 className="brand-display mt-3 text-4xl">Minutas de San Bartolomeo</h1>
+      <p className="mt-3 max-w-md text-sm leading-6 text-white/85">Accede al expediente de compradores, pagos y borradores para revisión.</p>
+    </section>
+    <section className="flex flex-col justify-center p-8 sm:p-10">
+      <LockKeyhole className="mb-5 h-10 w-10 text-[#54317f]" />
+      <h2 className="brand-display text-3xl text-[#33204f]">Ingresar a Minutas</h2>
+      <p className="mt-2 text-sm text-[#697386]">Verifica de nuevo la contraseña de tu cuenta autorizada.</p>
+      <form onSubmit={event => void handleLogin(event)} className="mt-8 space-y-4">
+        {!preview && <><div className="space-y-2"><Label htmlFor="minute-email">Correo</Label><Input id="minute-email" type="email" value={firebaseUser?.email || ''} readOnly autoComplete="username" /></div>
+        <div className="space-y-2"><Label htmlFor="minute-password">Contraseña</Label><Input id="minute-password" type="password" value={password} onChange={event => setPassword(event.target.value)} autoComplete="current-password" required /></div></>}
+        {loginError && <p role="alert" className="text-sm text-rose-700">{loginError}</p>}
+        <Button type="submit" disabled={loginBusy} className="w-full bg-[#54317f] text-white hover:bg-[#33204f]">{preview ? 'Entrar a la muestra de Minutas' : loginBusy ? 'Verificando…' : 'Ingresar a Minutas'}</Button>
+      </form>
+    </section>
+  </div>;
+
+  const navigation = <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#e4ddeb] bg-white px-4 py-3 shadow-sm">
+    <div><p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#54317f]">Panel de gestión</p><h1 className="brand-display text-2xl text-[#33204f]">{workspaceView === 'home' ? 'Inicio' : 'Minutas'}</h1></div>
+    <nav aria-label="Navegación de Minutas" className="flex flex-wrap gap-1 rounded-xl border border-[#e4ddeb] bg-[#fbfaf8] p-1">
+      <Button size="sm" variant="ghost" onClick={() => setWorkspaceView('home')} className={workspaceView === 'home' ? 'bg-[#dff5f3] text-[#185d66]' : ''}><Home className="h-4 w-4" /> Inicio</Button>
+      <Button size="sm" variant="ghost" onClick={() => setWorkspaceView('records')} className={workspaceView === 'records' ? 'bg-[#dff5f3] text-[#185d66]' : ''}><Search className="h-4 w-4" /> Minutas</Button>
+      <Button size="sm" variant="ghost" onClick={() => { prefilledClient.current = null; setEditingId(null); setDraft(blankMinute()); setWorkspaceView('records'); }}><FilePlus2 className="h-4 w-4" /> Nueva minuta</Button>
+      <Button size="sm" variant="ghost" onClick={() => { setUnlocked(false); setPassword(''); setRecords([]); }}><LogOut className="h-4 w-4" /> Cerrar sesión</Button>
+    </nav>
+  </div>;
+
+  if (workspaceView === 'home') return <div className="space-y-5">{navigation}
+    <section className="relative overflow-hidden rounded-3xl bg-[#203651] p-8 text-white shadow-lg sm:p-12" style={{ backgroundImage: 'linear-gradient(90deg, #203651f5, #203651ab), url(/brand/san-bartolomeo-hero.jpeg)', backgroundSize: 'cover', backgroundPosition: 'center' }}>
+      <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#bdeeea]">San Bartolomeo Inmobiliaria</p>
+      <h2 className="brand-display mt-4 max-w-xl text-4xl">Convierte los datos del cliente en un borrador de minuta.</h2>
+      <p className="mt-3 max-w-xl text-sm leading-6 text-white/80">Completa compradores, verifica importes y genera un Word de trabajo para revisión legal.</p>
+      <Button className="mt-6 bg-[#bcefeb] text-[#21314a] hover:bg-white" onClick={() => { setEditingId(null); setDraft(blankMinute()); setWorkspaceView('records'); }}><FilePlus2 className="h-4 w-4" /> Crear nueva minuta</Button>
+    </section>
+    <div className="grid gap-4 sm:grid-cols-2"><Card><CardHeader><CardTitle>{records.length} minutas guardadas</CardTitle></CardHeader><CardContent><Button variant="outline" onClick={() => setWorkspaceView('records')}>Ver expedientes</Button></CardContent></Card><Card><CardHeader><CardTitle>Documento para revisión</CardTitle></CardHeader><CardContent className="text-sm text-[#697386]">Cada Word requiere comprobación de datos y una plantilla contractual aprobada.</CardContent></Card></div>
+  </div>;
 
   return <div className="space-y-5">
+    {navigation}
     <section className="rounded-3xl bg-[#33204f] px-6 py-7 text-white shadow-lg">
       <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#ffbe72]">Documentos comerciales</p>
       <h1 className="brand-display mt-2 text-3xl">Minutas de San Bartolomeo</h1>

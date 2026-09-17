@@ -23,11 +23,13 @@ import { ref as storageRef, listAll, deleteObject } from 'firebase/storage';
 import type { ObservationEntry, Titular } from '@/types/client';
 import { clientMatchesTitular } from '@/types/client';
 import { createClientWithAudit, updateClientWithAudit, deleteClientWithAudit } from '@/services/audit';
+import { updateQuotaWithAudit } from '@/services/audit';
+import { canManageClients, canManageReceipts, canRegisterPayments, type UserRole } from '@/config/permissions';
 
 interface User {
   id: string;
   username: string;
-  role: 'admin' | 'full' | 'readonly';
+  role: UserRole;
   email: string;
 }
 
@@ -173,7 +175,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const profile = await getDoc(doc(db, 'users', firebaseUser.uid));
           const data = profile.data();
           if (profile.exists() && data?.active === true &&
-              ['admin', 'full', 'readonly'].includes(data.role)) {
+              ['admin', 'pagos', 'boletas', 'legal'].includes(data.role)) {
             setUser({
               id: firebaseUser.uid,
               username: data.name || firebaseUser.email || 'Usuario',
@@ -259,7 +261,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const addClient = async (clientData: Omit<Client, 'id' | 'fechaRegistro' | 'cuotas' | 'userId'>): Promise<boolean> => {
-    if (!firebaseUser) return false;
+    if (!firebaseUser || !canManageClients(user?.role)) return false;
 
     try {
       // Verificar si ya existe un cliente con la misma manzana y lote
@@ -308,38 +310,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const safeClientData = { ...clientData };
 
-      if (!firebaseUser || user?.role === 'readonly') throw new Error('No tienes permiso para editar.');
+      if (!firebaseUser || !canManageClients(user?.role)) throw new Error('No tienes permiso para editar clientes.');
       await updateClientWithAudit(firebaseUser, id, safeClientData);
     } catch (error) {
       console.error('Error al actualizar cliente:', error);
+      throw error;
     }
   };
 
   const deleteClient = async (id: string): Promise<void> => {
+    if (!firebaseUser || !canManageClients(user?.role)) throw new Error('Solo el administrador puede eliminar.');
     try {
-      // First delete storage files under clients/{id}/cuotas/** if any
+      // Borrar adjuntos en todos los niveles (cuotas/índice/tipo/archivo y minutas).
       try {
-        const listRef = storageRef(storage, `clients/${id}`);
-        const res = await listAll(listRef);
-        // delete files directly under this path
-        await Promise.all(res.items.map(itemRef => deleteObject(itemRef).catch(err => { console.warn('Error deleting storage file', err); })));
-        // listAll does not recursively list nested folders in older SDK; try to list each subfolder
-        await Promise.all(res.prefixes.map(async (pref) => {
-          try {
-            const subRes = await listAll(pref);
-            await Promise.all(subRes.items.map(it => deleteObject(it).catch(err => { console.warn('Error deleting nested file', err); })));
-          } catch (e) {
-            console.warn('Error listing nested prefix', e);
-          }
-        }));
+        const removeTree = async (folder: ReturnType<typeof storageRef>): Promise<void> => {
+          const result = await listAll(folder);
+          await Promise.all(result.items.map(item => deleteObject(item)));
+          await Promise.all(result.prefixes.map(removeTree));
+        };
+        await removeTree(storageRef(storage, `clients/${id}`));
       } catch (err) {
         console.warn('Error cleaning up storage for client', id, err);
       }
 
-      if (!firebaseUser || user?.role !== 'admin') throw new Error('Solo el administrador puede eliminar.');
       await deleteClientWithAudit(firebaseUser, id);
     } catch (error) {
       console.error('Error al eliminar cliente:', error);
+      throw error;
     }
   };
 
@@ -372,6 +369,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const generateCuotas = async (clientId: string): Promise<void> => {
+    if (!canManageClients(user?.role)) throw new Error('Solo el administrador puede generar cuotas.');
     let client = clients.find(c => c.id === clientId) as Client | undefined;
 
     // If client is not yet in local state (race with onSnapshot), fetch it directly from Firestore
@@ -438,21 +436,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const updateCuota = async (clientId: string, cuotaIndex: number, cuotaData: Partial<Cuota>): Promise<void> => {
     const client = clients.find(c => c.id === clientId);
-    if (!client || !client.cuotas) return;
+    if (!client?.cuotas?.[cuotaIndex] || !firebaseUser) throw new Error('Cuota no encontrada.');
 
-    try {
-      const updatedCuotas = [...client.cuotas];
-      updatedCuotas[cuotaIndex] = { ...updatedCuotas[cuotaIndex], ...cuotaData };
-      
-      await updateClient(clientId, { cuotas: updatedCuotas });
-    } catch (error) {
-      console.error('Error al actualizar cuota:', error);
-    }
+    const updatedCuotas = client.cuotas.map((cuota, index) => index === cuotaIndex ? { ...cuota, ...cuotaData } : cuota);
+    const keys = Object.keys(cuotaData);
+    if (keys.length === 1 && keys[0] === 'voucher' && canRegisterPayments(user?.role)) {
+      await updateQuotaWithAudit(firebaseUser, clientId, updatedCuotas, cuotaIndex, 'voucher_actualizar');
+    } else if (keys.length === 1 && keys[0] === 'boleta' && canManageReceipts(user?.role)) {
+      await updateQuotaWithAudit(firebaseUser, clientId, updatedCuotas, cuotaIndex, 'boleta_actualizar');
+    } else if (canManageClients(user?.role)) {
+      await updateClientWithAudit(firebaseUser, clientId, { cuotas: updatedCuotas });
+    } else throw new Error('No tienes permiso para esta operación de cuotas.');
   };
 
   const markCuotaAsPaid = async (clientId: string, cuotaIndex: number, fechaPago: string): Promise<void> => {
+    if (!canRegisterPayments(user?.role) || !firebaseUser) throw new Error('No tienes permiso para registrar pagos.');
     const client = clients.find(c => c.id === clientId);
-    if (!client || !client.cuotas) return;
+    if (!client?.cuotas?.[cuotaIndex]) throw new Error('Cuota no encontrada.');
 
     try {
       const updatedCuotas = [...client.cuotas];
@@ -470,13 +470,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         ...cuota,
         fechaPago: fechaPagoISO,
         estado: 'pagado',
-        mora,
-        total: cuota.monto + mora
+        ...(user?.role === 'admin' ? { mora, total: cuota.monto + mora } : {}),
       };
       
-      await updateClient(clientId, { cuotas: updatedCuotas });
+      if (user?.role === 'admin') await updateClientWithAudit(firebaseUser, clientId, { cuotas: updatedCuotas });
+      else await updateQuotaWithAudit(firebaseUser, clientId, updatedCuotas, cuotaIndex, 'pago_registrar');
     } catch (error) {
       console.error('Error al marcar cuota como pagada:', error);
+      throw error;
     }
   };
 
@@ -522,7 +523,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const appendObservation = async (clientId: string, value: string): Promise<void> => {
     const text = value.trim();
     if (!text || text.length > 2000) throw new Error('La observación debe tener entre 1 y 2000 caracteres.');
-    if (!firebaseUser || user?.role === 'readonly') throw new Error('No tienes permiso para agregar observaciones.');
+    if (!firebaseUser || !canManageClients(user?.role)) throw new Error('No tienes permiso para agregar observaciones.');
     const entry: ObservationEntry = {
       id: crypto.randomUUID(), text, author: firebaseUser.email || user.username,
       at: new Date().toISOString(),
