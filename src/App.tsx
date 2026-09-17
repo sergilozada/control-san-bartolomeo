@@ -23,7 +23,7 @@ function AppContent() {
 }
 
 export default function App() {
-  if (import.meta.env.DEV && !isFirebaseConfigured && new URLSearchParams(window.location.search).has('demo')) {
+  if (import.meta.env.DEV && new URLSearchParams(window.location.search).has('demo')) {
     return <QueryClientProvider client={queryClient}>
       <TooltipProvider><Toaster /><ErrorBoundary><DemoAuthProvider><FirebaseDashboard demo /></DemoAuthProvider></ErrorBoundary></TooltipProvider>
     </QueryClientProvider>;
