@@ -3,6 +3,13 @@ export interface Titular {
   dni: string;
 }
 
+export interface ObservationEntry {
+  id: string;
+  text: string;
+  author: string;
+  at: string;
+}
+
 export interface ClientTitularSource {
   titulares?: Titular[];
   nombre1?: string;

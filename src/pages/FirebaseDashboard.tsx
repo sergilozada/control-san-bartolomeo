@@ -81,10 +81,12 @@ const menuItems = [
 ];
 
 export default function FirebaseDashboard({ demo = false }: { demo?: boolean }) {
+  const alternateDesign = new URLSearchParams(window.location.search).get('design') === 'alt';
   const { logout, user, clients, searchClients, setSelectedClientId } = useAuth();
   const [activeTab, setActiveTab] = useState('inicio');
-  const [navigationOpen, setNavigationOpen] = useState(false);
+  const [navigationOpen, setNavigationOpen] = useState(alternateDesign);
   const [showNewClient, setShowNewClient] = useState(false);
+  const [minuteClientId, setMinuteClientId] = useState<string | null>(null);
   const [searchManzana, setSearchManzana] = useState('');
   const [searchLote, setSearchLote] = useState('');
   const [searchDniNombre, setSearchDniNombre] = useState('');
@@ -144,6 +146,11 @@ export default function FirebaseDashboard({ demo = false }: { demo?: boolean }) 
     setSelectedClientId(clientId);
   };
 
+  const createMinuteForClient = (clientId: string) => {
+    setMinuteClientId(clientId);
+    setActiveTab('minutas');
+  };
+
   const statCards = [
     {
       label: 'Clientes activos',
@@ -172,8 +179,14 @@ export default function FirebaseDashboard({ demo = false }: { demo?: boolean }) 
   ];
 
   return (
-    <div className="vh-dashboard-shell min-h-screen bg-[#f2f1ec] text-[#182033]">
-      {demo && <div className="bg-[#ffedcc] px-4 py-2 text-center text-sm font-medium text-[#69430d]">Vista previa local · datos ficticios · los cambios no se guardan</div>}
+    <div className={`vh-dashboard-shell min-h-screen bg-[#f2f1ec] text-[#182033] ${alternateDesign ? 'sb-design-alt' : ''}`}>
+      {demo && <div className="sb-demo-banner flex flex-wrap items-center justify-center gap-x-4 gap-y-1 bg-[#ffedcc] px-4 py-2 text-center text-sm font-medium text-[#69430d]">
+        <span>Vista previa local · datos ficticios · los cambios no se guardan</span>
+        <span className="inline-flex gap-1 rounded-full border border-[#d2b97e] bg-white/80 p-0.5 text-xs">
+          <a href="/?demo" aria-current={!alternateDesign ? 'page' : undefined} className={`rounded-full px-3 py-1 ${!alternateDesign ? 'bg-[#33204f] text-white' : 'text-[#33204f]'}`}>Diseño actual</a>
+          <a href="/?demo&design=alt" aria-current={alternateDesign ? 'page' : undefined} className={`rounded-full px-3 py-1 ${alternateDesign ? 'bg-[#33204f] text-white' : 'text-[#33204f]'}`}>Diseño propuesto</a>
+        </span>
+      </div>}
       <header className="vh-header-enter sticky top-0 z-40 border-b border-[#d9ddd9]/90 bg-[#fffefb]/95 backdrop-blur-xl">
         <div className="flex h-16 w-full items-center justify-between gap-2 px-2.5 sm:gap-4 sm:px-5 lg:px-6">
           <button
@@ -409,7 +422,7 @@ export default function FirebaseDashboard({ demo = false }: { demo?: boolean }) 
                                 <TableCell><Badge variant="outline">{getClientStatus(client)}</Badge></TableCell>
                                 <TableCell>
                                   <div className="flex justify-end gap-2">
-                                    <MinutaUploadButton clientId={client.id} clientName={getClientDisplayName(client)} />
+                                    <MinutaUploadButton clientId={client.id} clientName={getClientDisplayName(client)} onCreate={createMinuteForClient} />
                                     <Button size="sm" variant="ghost" onClick={() => openClient(client.id)}>Ver cliente</Button>
                                   </div>
                                 </TableCell>
@@ -431,8 +444,8 @@ export default function FirebaseDashboard({ demo = false }: { demo?: boolean }) 
             </Card>
           </TabsContent>
 
-          <TabsContent value="clientes" className="vh-tab-enter mt-0"><ClientList /></TabsContent>
-          <TabsContent value="minutas" className="vh-tab-enter mt-0"><MinutasWorkspace /></TabsContent>
+          <TabsContent value="clientes" className="vh-tab-enter mt-0"><ClientList onCreateMinute={createMinuteForClient} /></TabsContent>
+          <TabsContent value="minutas" className="vh-tab-enter mt-0"><MinutasWorkspace initialClientId={minuteClientId} /></TabsContent>
           {user?.role === 'admin' && <TabsContent value="auditoria" className="vh-tab-enter mt-0"><AuditLog /></TabsContent>}
           <TabsContent value="proyeccion" className="vh-tab-enter mt-0"><ProjectionView /></TabsContent>
           <TabsContent value="estadisticas" className="vh-tab-enter mt-0"><StatsView /></TabsContent>

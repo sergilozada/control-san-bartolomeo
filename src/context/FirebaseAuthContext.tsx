@@ -16,13 +16,11 @@ import {
   where, 
   onSnapshot,
   orderBy,
+  arrayUnion,
 } from 'firebase/firestore';
 import { auth, db, storage } from '@/services/firebase';
 import { ref as storageRef, listAll, deleteObject } from 'firebase/storage';
-import { CURRENT_PAYMENT_SCHEDULE_VERSION } from '@/config/paymentSchedule';
-import type { ClientMigrationFields, ClientMigrationState } from '@/types/paymentMigration';
-import { isLegacyMigrationEligible, isMigrationEnabled } from '@/types/paymentMigration';
-import type { Titular } from '@/types/client';
+import type { ObservationEntry, Titular } from '@/types/client';
 import { clientMatchesTitular } from '@/types/client';
 import { createClientWithAudit, updateClientWithAudit, deleteClientWithAudit } from '@/services/audit';
 
@@ -33,7 +31,7 @@ interface User {
   email: string;
 }
 
-interface Client extends ClientMigrationFields {
+interface Client {
   id: string;
   titulares?: Titular[];
   nombre1: string;
@@ -45,6 +43,7 @@ interface Client extends ClientMigrationFields {
   email1?: string;
   email2?: string;
   observaciones?: string;
+  observationEntries?: ObservationEntry[];
   manzana: string;
   lote: string;
   metraje: number;
@@ -53,7 +52,6 @@ interface Client extends ClientMigrationFields {
   inicial?: number;
   numeroCuotas?: number;
   fechaRegistro: string;
-  versionCronograma?: string;
   cuotas?: Cuota[];
   userId: string; // Para asociar con el usuario
 }
@@ -94,8 +92,7 @@ interface AuthContextType {
   markCuotaAsPaid: (clientId: string, cuotaIndex: number, fechaPago: string) => Promise<void>;
   updateCuotaAmount: (clientId: string, newAmount: number) => Promise<void>;
   updateCuotaDates: (clientId: string, cuotaIndex: number, newDate: string) => Promise<void>;
-  updateClientMigration: (clientId: string, migration: ClientMigrationState) => Promise<void>;
-  updateMigratedClientsSchedule: (targetVersion: string) => Promise<number>;
+  appendObservation: (clientId: string, text: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -114,16 +111,18 @@ export const useOptionalAuth = () => useContext(AuthContext);
 // Vista local aislada: datos ficticios y ninguna conexión a Firestore.
 export const DemoAuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  const [observations, setObservations] = useState<Record<string, ObservationEntry[]>>({});
   const today = new Date();
   const iso = (offsetMonths: number) => {
     const date = new Date(today.getFullYear(), today.getMonth() + offsetMonths, 10);
     return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), '10'].join('-');
   };
-  const clients: Client[] = [
+  const demoClients: Client[] = [
     { id: 'demo-1', userId: 'demo', nombre1: 'Alicia Torres', dni1: '00000001', manzana: 'A', lote: '12', metraje: 120, montoTotal: 48000, formaPago: 'cuotas', inicial: 12000, numeroCuotas: 3, fechaRegistro: iso(-6), cuotas: [-5, -4, -3].map((month, index) => ({ numero: index + 1, vencimiento: iso(month), monto: 12000, estado: 'pagado' as const, fechaPago: iso(month) })) },
     { id: 'demo-2', userId: 'demo', nombre1: 'Carlos Vega', dni1: '00000002', manzana: 'B', lote: '07', metraje: 150, montoTotal: 60000, formaPago: 'cuotas', inicial: 15000, numeroCuotas: 5, fechaRegistro: iso(-5), cuotas: [-3, -2, -1, 0, 1].map((month, index) => ({ numero: index + 1, vencimiento: iso(month), monto: 9000, estado: 'pendiente' as const })) },
     { id: 'demo-3', userId: 'demo', nombre1: 'Elena Ruiz', dni1: '00000003', manzana: 'C', lote: '04', metraje: 110, montoTotal: 44000, formaPago: 'cuotas', inicial: 11000, numeroCuotas: 3, fechaRegistro: iso(-1), cuotas: [0, 1, 2].map((month, index) => ({ numero: index + 1, vencimiento: iso(month), monto: 11000, estado: 'pendiente' as const })) },
   ];
+  const clients = demoClients.map(client => ({ ...client, observationEntries: observations[client.id] || [] }));
   const previewOnly = async (): Promise<never> => { throw new Error('La vista previa no guarda cambios.'); };
   const formatLocalISO = (date?: Date | string) => {
     const value = date ? new Date(date) : new Date();
@@ -134,7 +133,7 @@ export const DemoAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return new Date(year, month - 1, day);
   };
   return <AuthContext.Provider value={{
-    preview: true, user: { id: 'demo', username: 'Vista previa', role: 'readonly', email: '' },
+    preview: true, user: { id: 'demo', username: 'Vista previa', role: 'admin', email: '' },
     firebaseUser: null, clients, selectedClientId, loading: false, setSelectedClientId,
     formatLocalISO, parseLocalDate,
     login: async () => false, resetPassword: previewOnly,
@@ -147,8 +146,11 @@ export const DemoAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       (!lote || client.lote.toLowerCase().includes(lote.toLowerCase())) &&
       (!dniNombre || clientMatchesTitular(client, dniNombre))),
     markCuotaAsPaid: previewOnly, updateCuotaAmount: previewOnly,
-    updateCuotaDates: previewOnly, updateClientMigration: previewOnly,
-    updateMigratedClientsSchedule: previewOnly,
+    updateCuotaDates: previewOnly,
+    appendObservation: async (clientId, value) => setObservations(current => ({
+      ...current,
+      [clientId]: [...(current[clientId] || []), { id: crypto.randomUUID(), text: value.trim(), author: 'Vista previa', at: new Date().toISOString() }],
+    })),
   }}>{children}</AuthContext.Provider>;
 };
 
@@ -281,9 +283,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         ...clientData,
         userId: firebaseUser.uid,
         fechaRegistro: new Date().toISOString().split('T')[0],
-        versionCronograma: CURRENT_PAYMENT_SCHEDULE_VERSION,
-        migracionElegible: false,
-        migracionActiva: false,
         cuotas: []
       };
 
@@ -308,12 +307,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const updateClient = async (id: string, clientData: Partial<Client>): Promise<void> => {
     try {
       const safeClientData = { ...clientData };
-      delete safeClientData.versionCronograma;
-      delete safeClientData.migracionElegible;
-      delete safeClientData.migracionActiva;
-      delete safeClientData.migracionDesdeCuota;
-      delete safeClientData.versionCronogramaMigracion;
-      delete safeClientData.migracionActualizadaEn;
 
       if (!firebaseUser || user?.role === 'readonly') throw new Error('No tienes permiso para editar.');
       await updateClientWithAudit(firebaseUser, id, safeClientData);
@@ -526,84 +519,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await updateCuota(clientId, cuotaIndex, { vencimiento: newDate });
   };
 
-  const updateClientMigration = async (clientId: string, migration: ClientMigrationState): Promise<void> => {
-    if (!firebaseUser) {
-      throw new Error('Se requiere una sesión activa para actualizar la migración.');
-    }
-
-    const normalizedMigrationVersion = migration.versionCronogramaMigracion.trim();
-    if (
-      !Number.isInteger(migration.migracionDesdeCuota) ||
-      migration.migracionDesdeCuota <= 0 ||
-      !normalizedMigrationVersion
-    ) {
-      throw new Error('La configuración de migración no es válida.');
-    }
-
-    const clientRef = doc(db, 'clients', clientId);
-    const clientSnapshot = await getDoc(clientRef);
-
-    if (!clientSnapshot.exists()) throw new Error('El cliente no existe.');
-    const currentClientData = clientSnapshot.data();
-    if (user?.role === 'readonly') throw new Error('No tienes permiso para editar.');
-    if (!isLegacyMigrationEligible(currentClientData, CURRENT_PAYMENT_SCHEDULE_VERSION)) {
-      throw new Error('Los clientes nuevos no requieren ni admiten migración.');
-    }
-    if (
-      currentClientData.migracionActiva === true &&
-      migration.migracionActiva === true &&
-      currentClientData.migracionDesdeCuota !== migration.migracionDesdeCuota
-    ) {
-      throw new Error('Desactive la migración antes de cambiar la cuota de inicio.');
-    }
-
-    // Escribir campos explícitos evita reemplazar accidentalmente cuotas o pagos históricos.
-    await updateClientWithAudit(firebaseUser, clientId, {
-      migracionElegible: true,
-      migracionActiva: migration.migracionActiva,
-      migracionDesdeCuota: migration.migracionDesdeCuota,
-      versionCronogramaMigracion: normalizedMigrationVersion,
-      migracionActualizadaEn: migration.migracionActualizadaEn
-    });
-  };
-
-  const updateMigratedClientsSchedule = async (targetVersion: string): Promise<number> => {
-    if (!firebaseUser) {
-      throw new Error('Se requiere una sesión activa para actualizar el cronograma.');
-    }
-
-    const normalizedTargetVersion = targetVersion.trim();
-    if (!normalizedTargetVersion) {
-      throw new Error('La versión del cronograma oficial no puede estar vacía.');
-    }
-
-    // Consultar toda la cartera compartida; se filtra la migración en memoria.
-    const ownedClientsSnapshot = await getDocs(query(collection(db, 'clients')));
-    const migratedClientRefs = ownedClientsSnapshot.docs
-      .filter(clientDoc => (
-        isMigrationEnabled(clientDoc.data(), CURRENT_PAYMENT_SCHEDULE_VERSION)
-      ))
-      .map(clientDoc => clientDoc.ref);
-
-    if (migratedClientRefs.length === 0) return 0;
-
-    const updatedAt = new Date().toISOString();
-    const batchSize = 450;
-
-    for (let start = 0; start < migratedClientRefs.length; start += batchSize) {
-      const group = migratedClientRefs.slice(start, start + batchSize);
-
-      for (const clientRef of group) {
-        // Solo cambian metadatos de presentación; `cuotas` queda intacto.
-        await updateClientWithAudit(firebaseUser, clientRef.id, {
-          migracionElegible: true,
-          versionCronogramaMigracion: normalizedTargetVersion,
-          migracionActualizadaEn: updatedAt
-        });
-      }
-    }
-
-    return migratedClientRefs.length;
+  const appendObservation = async (clientId: string, value: string): Promise<void> => {
+    const text = value.trim();
+    if (!text || text.length > 2000) throw new Error('La observación debe tener entre 1 y 2000 caracteres.');
+    if (!firebaseUser || user?.role === 'readonly') throw new Error('No tienes permiso para agregar observaciones.');
+    const entry: ObservationEntry = {
+      id: crypto.randomUUID(), text, author: firebaseUser.email || user.username,
+      at: new Date().toISOString(),
+    };
+    await updateClientWithAudit(firebaseUser, clientId, { observationEntries: arrayUnion(entry) }, 'Nueva anotación en el libro de observaciones');
   };
 
   const calculateMora = (vencimiento: string, monto: number): number => {
@@ -649,8 +573,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       markCuotaAsPaid,
       updateCuotaAmount,
       updateCuotaDates,
-      updateClientMigration,
-      updateMigratedClientsSchedule
+      appendObservation,
     }}>
       {children}
     </AuthContext.Provider>

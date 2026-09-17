@@ -27,6 +27,7 @@ import {
 interface MinutaUploadButtonProps {
   clientId: string;
   clientName: string;
+  onCreate?: (clientId: string) => void;
 }
 
 interface StoredMinute {
@@ -46,8 +47,8 @@ const sanitizeFileName = (fileName: string) => (
     .replace(/[^a-zA-Z0-9._-]/g, '_')
 );
 
-export default function MinutaUploadButton({ clientId, clientName }: MinutaUploadButtonProps) {
-  const { firebaseUser, user } = useAuth();
+export default function MinutaUploadButton({ clientId, clientName, onCreate }: MinutaUploadButtonProps) {
+  const { firebaseUser, user, preview } = useAuth();
   const inputRef = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -57,6 +58,7 @@ export default function MinutaUploadButton({ clientId, clientName }: MinutaUploa
   const [deleting, setDeleting] = useState(false);
 
   const loadMinutes = useCallback(async () => {
+    if (preview) { setMinutes([]); return; }
     setLoading(true);
     try {
       const folder = storageRef(storage, `clients/${clientId}/minutas`);
@@ -82,7 +84,7 @@ export default function MinutaUploadButton({ clientId, clientName }: MinutaUploa
     } finally {
       setLoading(false);
     }
-  }, [clientId]);
+  }, [clientId, preview]);
 
   useEffect(() => {
     if (open) void loadMinutes();
@@ -185,6 +187,9 @@ export default function MinutaUploadButton({ clientId, clientName }: MinutaUploa
         </DialogHeader>
 
         <div className="space-y-5 px-6 py-5">
+          {onCreate && <Button type="button" className="w-full bg-[#54317f] text-white" onClick={() => { setOpen(false); onCreate(clientId); }}>
+            Crear borrador de minuta para este cliente
+          </Button>}
           <input
             ref={inputRef}
             type="file"
@@ -193,7 +198,7 @@ export default function MinutaUploadButton({ clientId, clientName }: MinutaUploa
             onChange={handleFileChange}
           />
 
-          {user?.role !== 'readonly' && <button
+          {!preview && user?.role !== 'readonly' && <button
             type="button"
             onClick={() => inputRef.current?.click()}
             disabled={uploading}

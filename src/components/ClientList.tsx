@@ -20,40 +20,26 @@ import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
-import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowRightLeft, BookOpen, Download, Edit, Eye, FileCheck2, FileText, Loader2, RefreshCw, Trash2, Upload } from 'lucide-react';
+import { BookOpen, Download, Edit, Eye, FileCheck2, FileText, Loader2, Trash2, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import { storage } from '@/services/firebase';
 import { deleteObject, getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import {
-  CURRENT_PAYMENT_SCHEDULE_VERSION,
-  OFFICIAL_MIGRATION_SCHEDULE_VERSION
-} from '@/config/paymentSchedule';
-import type { ClientMigrationFields, ClientMigrationState } from '@/types/paymentMigration';
-import type { Titular } from '@/types/client';
+import type { ObservationEntry, Titular } from '@/types/client';
 import { getClientDisplayDnis, getClientDisplayName, getClientTitulares } from '@/types/client';
 import MinutaUploadButton from '@/components/MinutaUploadButton';
 import { NoDebtCertificateButton, ResolutionDraftButton } from '@/components/ClientDocuments';
-import {
-  clampMigrationStart,
-  getEffectiveScheduleVersion,
-  getRegularInstallmentNumbers,
-  getSuggestedMigrationStart,
-  isLegacyMigrationEligible,
-  isMigrationEnabled,
-  splitInstallmentsByMigration
-} from '@/types/paymentMigration';
 
 interface ClientListProps {
   filterType?: 'pending' | 'overdue' | 'all';
+  onCreateMinute?: (clientId: string) => void;
 }
 
 type OverdueCountFilter = 'all' | '1' | '2' | '3' | '4' | '5' | '6';
 
-interface Client extends ClientMigrationFields {
+interface Client {
   id: string;
   titulares?: Titular[];
   nombre1: string;
@@ -65,6 +51,7 @@ interface Client extends ClientMigrationFields {
   email1?: string;
   email2?: string;
   observaciones?: string;
+  observationEntries?: ObservationEntry[];
   manzana: string;
   lote: string;
   metraje: number;
@@ -73,7 +60,6 @@ interface Client extends ClientMigrationFields {
   inicial?: number;
   numeroCuotas?: number;
   fechaRegistro: string;
-  versionCronograma?: string;
   cuotas?: Cuota[];
 }
 
@@ -121,14 +107,6 @@ interface PaymentScheduleConfig {
   bankLines: string[];
 }
 
-const LEGACY_PAYMENT_SCHEDULE: PaymentScheduleConfig = {
-  logoLayout: 'legacy-wide',
-  logoUrls: ['/brand/san-bartolomeo-logo.jpeg'],
-  cobranzaPhone: 'Por confirmar',
-  projectName: 'SAN BARTOLOMEO',
-  bankLines: ['Solicite los datos bancarios vigentes a cobranzas.']
-};
-
 const CURRENT_PAYMENT_SCHEDULE: PaymentScheduleConfig = {
   logoLayout: 'legacy-wide',
   logoUrls: ['/brand/san-bartolomeo-logo.jpeg'],
@@ -137,35 +115,8 @@ const CURRENT_PAYMENT_SCHEDULE: PaymentScheduleConfig = {
   bankLines: ['Solicite los datos bancarios vigentes a cobranzas.']
 };
 
-const getPaymentScheduleConfigByVersion = (version?: string): PaymentScheduleConfig => (
-  version === CURRENT_PAYMENT_SCHEDULE_VERSION
-    ? CURRENT_PAYMENT_SCHEDULE
-    : LEGACY_PAYMENT_SCHEDULE
-);
-
-const getPaymentScheduleConfig = (client: Client, installmentNumber = 0): PaymentScheduleConfig => (
-  getPaymentScheduleConfigByVersion(
-    getEffectiveScheduleVersion(client, installmentNumber, CURRENT_PAYMENT_SCHEDULE_VERSION)
-  )
-);
-
 const getPaymentScheduleSections = (client: Client) => (
-  splitInstallmentsByMigration(
-    client,
-    client.cuotas || [],
-    CURRENT_PAYMENT_SCHEDULE_VERSION
-  ).map((section) => ({
-    ...section,
-    config: getPaymentScheduleConfig(client, section.installments[0]?.numero ?? 0)
-  }))
-);
-
-const isClientMigrationEligible = (client: Client): boolean => (
-  isLegacyMigrationEligible(client, CURRENT_PAYMENT_SCHEDULE_VERSION)
-);
-
-const isClientMigrationEnabled = (client: Client): boolean => (
-  isMigrationEnabled(client, CURRENT_PAYMENT_SCHEDULE_VERSION)
+  client.cuotas?.length ? [{ installments: client.cuotas, config: CURRENT_PAYMENT_SCHEDULE }] : []
 );
 
 const normalizeAttachments = (raw: Cuota['voucher']): StoredAttachment[] => {
@@ -176,20 +127,19 @@ const normalizeAttachments = (raw: Cuota['voucher']): StoredAttachment[] => {
   return typeof raw === 'string' ? [{ url: raw }] : [raw];
 };
 
-export default function ClientList({ filterType = 'all' }: ClientListProps) {
+export default function ClientList({ filterType = 'all', onCreateMinute }: ClientListProps) {
   const {
     user,
     preview,
     clients,
     deleteClient,
     updateClient,
+    appendObservation,
     updateCuota,
     calculateMora,
     markCuotaAsPaid,
     updateCuotaAmount,
     updateCuotaDates,
-    updateClientMigration,
-    updateMigratedClientsSchedule,
     selectedClientId,
     setSelectedClientId,
     formatLocalISO,
@@ -213,9 +163,6 @@ export default function ClientList({ filterType = 'all' }: ClientListProps) {
   const [editingEmailClientId, setEditingEmailClientId] = useState<string | null>(null);
   const [editEmail1, setEditEmail1] = useState('');
   const [editEmail2, setEditEmail2] = useState('');
-  const [migrationStartDraft, setMigrationStartDraft] = useState<number | null>(null);
-  const [migrationSaving, setMigrationSaving] = useState(false);
-  const [bulkMigrationUpdating, setBulkMigrationUpdating] = useState(false);
   const [observationsClient, setObservationsClient] = useState<Client | null>(null);
   const [observationDraft, setObservationDraft] = useState('');
   const [savingObservation, setSavingObservation] = useState(false);
@@ -223,83 +170,14 @@ export default function ClientList({ filterType = 'all' }: ClientListProps) {
   const [attachmentToDelete, setAttachmentToDelete] = useState<AttachmentDeleteState | null>(null);
   const [deletingAttachment, setDeletingAttachment] = useState(false);
 
-  const getMigrationStart = (client: Client): number => (
-    clampMigrationStart(
-      migrationStartDraft ?? client.migracionDesdeCuota ?? getSuggestedMigrationStart(client.cuotas),
-      client.cuotas
-    )
-  );
-
-  const persistMigration = async (
-    client: Client,
-    active: boolean,
-    requestedStart = getMigrationStart(client)
-  ) => {
-    if (active && !isClientMigrationEligible(client)) {
-      toast.error('Los clientes nuevos ya usan el cronograma vigente y no requieren migración');
-      return;
-    }
-
-    const regularInstallments = getRegularInstallmentNumbers(client.cuotas);
-    if (regularInstallments.length === 0) {
-      toast.error('Este cliente no tiene cuotas regulares para migrar');
-      return;
-    }
-
-    const migrationStart = clampMigrationStart(requestedStart, client.cuotas);
-    const migration: ClientMigrationState = {
-      migracionActiva: active,
-      migracionDesdeCuota: migrationStart,
-      versionCronogramaMigracion: active && client.migracionActiva !== true
-        ? OFFICIAL_MIGRATION_SCHEDULE_VERSION
-        : client.versionCronogramaMigracion || OFFICIAL_MIGRATION_SCHEDULE_VERSION,
-      migracionActualizadaEn: new Date().toISOString()
-    };
-
-    setMigrationSaving(true);
-    try {
-      await updateClientMigration(client.id, migration);
-      setMigrationStartDraft(migrationStart);
-      toast.success(active
-        ? `Migración activada desde la cuota N.° ${migrationStart}`
-        : 'Migración desactivada correctamente');
-    } catch (error) {
-      console.error('Error actualizando la migración:', error);
-      setMigrationStartDraft(clampMigrationStart(
-        client.migracionDesdeCuota ?? getSuggestedMigrationStart(client.cuotas),
-        client.cuotas
-      ));
-      toast.error('No se pudo guardar la configuración de migración');
-    } finally {
-      setMigrationSaving(false);
-    }
-  };
-
-  const handleBulkMigrationUpdate = async () => {
-    setBulkMigrationUpdating(true);
-    try {
-      const updated = await updateMigratedClientsSchedule(OFFICIAL_MIGRATION_SCHEDULE_VERSION);
-      toast.success(`${updated} cliente${updated === 1 ? '' : 's'} migrado${updated === 1 ? '' : 's'} actualizado${updated === 1 ? '' : 's'}`);
-    } catch (error) {
-      console.error('Error actualizando cronogramas migrados:', error);
-      toast.error('No se pudo actualizar el cronograma de los clientes migrados');
-    } finally {
-      setBulkMigrationUpdating(false);
-    }
-  };
-
   const openClientDetail = (client: Client) => {
-    setMigrationStartDraft(clampMigrationStart(
-      client.migracionDesdeCuota ?? getSuggestedMigrationStart(client.cuotas),
-      client.cuotas
-    ));
     setSelectedClient(client.id);
     setSelectedClientId(client.id);
   };
 
   const openObservations = (client: Client) => {
     setObservationsClient(client);
-    setObservationDraft(client.observaciones || '');
+    setObservationDraft('');
   };
 
   const closeObservations = () => {
@@ -309,14 +187,12 @@ export default function ClientList({ filterType = 'all' }: ClientListProps) {
   };
 
   const saveObservation = async () => {
-    if (!observationsClient) return;
+    if (!observationsClient || !observationDraft.trim()) return;
 
     setSavingObservation(true);
     try {
-      await Promise.resolve(updateClient(observationsClient.id, {
-        observaciones: observationDraft.trim(),
-      }));
-      toast.success('Observación guardada correctamente');
+      await appendObservation(observationsClient.id, observationDraft);
+      toast.success('Anotación agregada al libro');
       setObservationsClient(null);
       setObservationDraft('');
     } catch (error) {
@@ -1562,12 +1438,9 @@ export default function ClientList({ filterType = 'all' }: ClientListProps) {
   };
 
   const filteredClients = getFilteredClients();
-  const activeMigratedClientsCount = clients.filter((client: Client) => (
-    isClientMigrationEnabled(client)
-  )).length;
   const showDebtColumn = filterType === 'pending' || filterType === 'overdue';
   const showStatusColumn = filterType === 'all';
-  const showMinuteAction = filterType === 'all' && !preview;
+  const showMinuteAction = filterType === 'all';
 
   return (
     <div className="w-full space-y-6">
@@ -1579,35 +1452,6 @@ export default function ClientList({ filterType = 'all' }: ClientListProps) {
             <p className="mt-1 text-sm text-[#697386]">Consulta pagos, documentos y datos de cada registro.</p>
           </div>
           <div className="flex flex-wrap justify-end gap-2">
-            {filterType === 'all' && (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button
-                    variant="outline"
-                    disabled={activeMigratedClientsCount === 0 || bulkMigrationUpdating}
-                  >
-                    <RefreshCw className={`mr-2 h-4 w-4 ${bulkMigrationUpdating ? 'animate-spin' : ''}`} />
-                    {bulkMigrationUpdating
-                      ? 'Actualizando…'
-                      : `Actualizar migrados (${activeMigratedClientsCount})`}
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent className="w-[calc(100vw-2rem)] rounded-2xl border-[#d9ddd9] bg-[#fffefb] sm:max-w-lg">
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>¿Actualizar el cronograma de clientes migrados?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Se aplicará el cronograma oficial únicamente a los {activeMigratedClientsCount} cliente{activeMigratedClientsCount === 1 ? '' : 's'} con migración activa. Cuotas, pagos, mora, vouchers y boletas existentes permanecerán sin cambios.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleBulkMigrationUpdate}>
-                      Confirmar actualización
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            )}
             <Button onClick={exportClientsToPDF} disabled={filteredClients.length === 0}>
               <Download className="w-4 h-4 mr-2" />
               Descargar clientes PDF
@@ -1838,6 +1682,7 @@ export default function ClientList({ filterType = 'all' }: ClientListProps) {
                           <MinutaUploadButton
                             clientId={client.id}
                             clientName={getClientDisplayName(client)}
+                            onCreate={onCreateMinute}
                           />
                         )}
                         {filterType === 'all' && <NoDebtCertificateButton client={client} />}
@@ -1863,18 +1708,18 @@ export default function ClientList({ filterType = 'all' }: ClientListProps) {
                           >
                             <Edit className="w-4 h-4" />
                           </Button>}
-                          {user?.role !== 'readonly' && <Button
+                          <Button
                             size="sm"
                             variant="outline"
-                            aria-label={`Observaciones de ${getClientDisplayName(client)}`}
-                            title="Observaciones"
+                            aria-label={`Libro de observaciones de ${getClientDisplayName(client)}`}
+                            title="Libro de observaciones"
                             onClick={() => openObservations(client)}
-                            className={client.observaciones?.trim()
+                            className={client.observationEntries?.length || client.observaciones?.trim()
                               ? 'border-[#ff9e32]/70 bg-[#fff8e8] text-[#805f1c] hover:bg-[#fff3d5] hover:text-[#805f1c]'
                               : 'text-[#33204f]'}
                           >
                             <BookOpen className="w-4 h-4" />
-                          </Button>}
+                          </Button>
                           {user?.role === 'admin' && <Button
                             size="sm"
                             variant="destructive"
@@ -1903,21 +1748,35 @@ export default function ClientList({ filterType = 'all' }: ClientListProps) {
             <div className="mb-2 flex h-11 w-11 items-center justify-center rounded-xl bg-[#f2ebf7] text-[#54317f]">
               <BookOpen className="h-5 w-5" />
             </div>
-            <DialogTitle className="text-xl text-[#33204f]">Observaciones del cliente</DialogTitle>
+            <DialogTitle className="text-xl text-[#33204f]">Libro de observaciones</DialogTitle>
             <DialogDescription className="leading-6 text-[#697386]">
-              {observationsClient ? getClientDisplayName(observationsClient) : ''}. Guarda aquí acuerdos, seguimientos o información útil para la atención.
+              {observationsClient ? getClientDisplayName(observationsClient) : ''}. Cada anotación conserva autor y fecha.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-2 px-6 py-5">
-            <Label htmlFor="client-observations" className="text-[#33204f]">Observación</Label>
+          <div className="max-h-[65vh] space-y-4 overflow-y-auto px-6 py-5">
+            <div className="space-y-2" aria-label="Anotaciones anteriores">
+              {observationsClient?.observaciones?.trim() && <div className="rounded-xl border border-[#d9ddd9] bg-[#f7f8f6] p-3 text-sm">
+                <p className="font-semibold text-[#33204f]">Nota anterior</p>
+                <p className="mt-1 whitespace-pre-wrap text-[#5f6878]">{observationsClient.observaciones}</p>
+              </div>}
+              {observationsClient?.observationEntries?.slice().reverse().map(entry => <div key={entry.id} className="rounded-xl border border-[#d9ddd9] bg-white p-3 text-sm">
+                <div className="flex flex-wrap justify-between gap-2 font-semibold text-[#33204f]">
+                  <span>{entry.author}</span><time>{new Date(entry.at).toLocaleString('es-PE')}</time>
+                </div>
+                <p className="mt-2 whitespace-pre-wrap text-[#5f6878]">{entry.text}</p>
+              </div>)}
+              {!observationsClient?.observaciones?.trim() && !observationsClient?.observationEntries?.length && <p className="text-sm text-[#697386]">Aún no hay anotaciones para este cliente.</p>}
+            </div>
+            {user?.role !== 'readonly' && <>
+            <Label htmlFor="client-observations" className="text-[#33204f]">Nueva anotación</Label>
             <Textarea
               id="client-observations"
               value={observationDraft}
               onChange={event => setObservationDraft(event.target.value)}
               maxLength={2000}
               rows={8}
-              placeholder="Escribe una observación sobre este cliente…"
+              placeholder="Escribe un acuerdo o seguimiento…"
               className="min-h-44 resize-y rounded-xl bg-white leading-6 focus-visible:border-[#5c3585]"
               disabled={savingObservation}
               autoFocus
@@ -1925,19 +1784,20 @@ export default function ClientList({ filterType = 'all' }: ClientListProps) {
             <p className="text-right text-xs text-[#697386]" aria-live="polite">
               {observationDraft.length}/2000
             </p>
+            </>}
           </div>
 
           <DialogFooter className="gap-2 border-t border-[#e9ebe7] bg-[#f5f4ef]/80 px-6 py-4 sm:space-x-0">
             <Button variant="outline" onClick={closeObservations} disabled={savingObservation}>
               Cancelar
             </Button>
-            <Button
+            {user?.role !== 'readonly' && <Button
               onClick={() => void saveObservation()}
-              disabled={savingObservation || observationDraft.trim() === (observationsClient?.observaciones || '').trim()}
+              disabled={savingObservation || !observationDraft.trim()}
             >
               {savingObservation && <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" />}
               {savingObservation ? 'Guardando…' : 'Guardar observación'}
-            </Button>
+            </Button>}
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1981,13 +1841,6 @@ export default function ClientList({ filterType = 'all' }: ClientListProps) {
             {(() => {
               const client = clients.find(c => c.id === selectedClient);
               if (!client || !client.cuotas) return null;
-              const regularInstallments = getRegularInstallmentNumbers(client.cuotas);
-              const migrationStart = getMigrationStart(client);
-              const migrationEligible = isClientMigrationEligible(client);
-              const migrationActive = isClientMigrationEnabled(client);
-              const sliderMinimum = regularInstallments[0] ?? 1;
-              const sliderMaximum = regularInstallments[regularInstallments.length - 1] ?? 1;
-
               return (
                 <div className="space-y-4">
                   <div className="mx-auto w-full max-w-5xl space-y-4 rounded-xl bg-gray-50 p-4 text-sm sm:p-5">
@@ -2020,99 +1873,7 @@ export default function ClientList({ filterType = 'all' }: ClientListProps) {
 
                   </div>
 
-                  <div className="mx-auto grid w-full max-w-5xl items-start gap-3 sm:grid-cols-[minmax(0,34rem)_13rem] sm:justify-between">
-                    <section
-                      className="w-full rounded-xl border border-[#d9ddd9] bg-[#fffefb] p-3 shadow-sm"
-                      aria-labelledby={`migration-title-${client.id}`}
-                    >
-                      <div className="flex min-w-0 items-start gap-2.5">
-                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#f2ebf7] text-[#54317f]">
-                          <ArrowRightLeft className="h-4 w-4" aria-hidden="true" />
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            <h3 id={`migration-title-${client.id}`} className="text-sm font-semibold text-[#33204f]">Migración</h3>
-                            <Badge className={`px-2 py-0.5 text-[10px] ${migrationActive
-                              ? 'bg-emerald-600 hover:bg-emerald-600'
-                              : migrationEligible
-                                ? 'bg-slate-500 hover:bg-slate-500'
-                                : 'bg-[#54317f] hover:bg-[#54317f]'}`}>
-                              {migrationActive ? 'ACTIVADA' : migrationEligible ? 'DESACTIVADA' : 'NO APLICA'}
-                            </Badge>
-                          </div>
-                          <p className="mt-0.5 text-[11px] leading-4 text-[#697386]">
-                            {migrationEligible
-                              ? 'Aplica el nuevo cronograma desde la cuota elegida.'
-                              : 'Este cliente ya usa el cronograma vigente.'}
-                          </p>
-
-                          {migrationEligible && (
-                            <div className="mt-2.5 rounded-lg border border-[#e4e7e2] bg-white p-2.5">
-                              <div className="flex items-center justify-between gap-3">
-                                <Label className="text-[11px] font-semibold text-[#5f6878]" htmlFor={`migration-slider-${client.id}`}>
-                                  Aplicar desde la cuota
-                                </Label>
-                                <span className="min-w-9 rounded-md bg-[#f2ebf7] px-2 py-0.5 text-center text-xs font-bold text-[#54317f]">
-                                  {migrationStart}
-                                </span>
-                              </div>
-                              <Slider
-                                id={`migration-slider-${client.id}`}
-                                className="mt-2.5"
-                                min={sliderMinimum}
-                                max={sliderMaximum}
-                                step={1}
-                                value={[migrationStart]}
-                                disabled={migrationActive || migrationSaving || regularInstallments.length === 0}
-                                onValueChange={(values) => setMigrationStartDraft(
-                                  clampMigrationStart(values[0], client.cuotas)
-                                )}
-                                aria-label="Cuota desde la que comienza la migración"
-                              />
-                              <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-[#eef0ec] pt-2.5">
-                                <p className="text-[10px] leading-4 text-[#697386]">
-                                  Cuota {migrationStart} en adelante · inicial intacta
-                                </p>
-                                {migrationActive ? (
-                                  <AlertDialog>
-                                    <AlertDialogTrigger asChild>
-                                      <Button size="sm" variant="outline" className="h-8 px-3 text-xs" disabled={migrationSaving}>
-                                        Desactivar
-                                      </Button>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent className="w-[calc(100vw-2rem)] rounded-2xl border-[#d9ddd9] bg-[#fffefb] sm:max-w-md">
-                                      <AlertDialogHeader>
-                                        <AlertDialogTitle>¿Desactivar la migración?</AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                          El cliente volverá a utilizar la configuración anterior. Los pagos y documentos existentes no se eliminarán.
-                                        </AlertDialogDescription>
-                                      </AlertDialogHeader>
-                                      <AlertDialogFooter>
-                                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                        <AlertDialogAction onClick={() => persistMigration(client, false)}>
-                                          Confirmar
-                                        </AlertDialogAction>
-                                      </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                  </AlertDialog>
-                                ) : (
-                                  <Button
-                                    size="sm"
-                                    className="h-8 px-3 text-xs"
-                                    onClick={() => persistMigration(client, true, migrationStart)}
-                                    disabled={migrationSaving || regularInstallments.length === 0}
-                                  >
-                                    {migrationSaving && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
-                                    Activar
-                                  </Button>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </section>
-
+                  <div className="mx-auto flex w-full max-w-5xl justify-end">
                     <div className="w-full rounded-xl border border-[#d9ddd9] bg-[#f7f8f6] p-3 shadow-sm sm:justify-self-end">
                       <Label htmlFor="paymentDate" className="block text-left text-[11px] font-semibold leading-4 text-[#5f6878]">
                         Fecha para marcar pagos
