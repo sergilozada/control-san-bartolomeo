@@ -9,6 +9,7 @@ interface Entry {
   clientId: string;
   action: string;
   fields: string[];
+  summary?: string;
   createdAt?: Timestamp;
 }
 
@@ -34,6 +35,7 @@ export default function AuditLog() {
             <time className="text-slate-500">{entry.createdAt?.toDate().toLocaleString('es-PE') || 'Pendiente'}</time>
           </div>
           <p className="mt-1 text-slate-600">Cliente: {entry.clientId}</p>
+          {entry.summary && <p className="text-slate-600">{entry.summary}</p>}
           {entry.fields.length > 0 && <p className="text-slate-500">Campos: {entry.fields.join(', ')}</p>}
         </div>)}
       </div>

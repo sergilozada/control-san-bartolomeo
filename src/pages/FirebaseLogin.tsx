@@ -108,7 +108,7 @@ export default function FirebaseLogin() {
           <div className="relative max-w-xl">
             <div className="mb-6 h-px w-20 bg-[#ff9e32]" aria-hidden="true" />
             <h1 className="brand-display text-5xl font-medium leading-[0.98] tracking-[-0.035em] xl:text-6xl">
-              Condominio<br />San Bartolomeo
+              Control de clientes<br />y pagos
             </h1>
             <p className="mt-5 max-w-lg text-base leading-7 text-white/80">
               Una plataforma clara y segura para administrar clientes, pagos y documentos del proyecto.
@@ -216,7 +216,6 @@ export default function FirebaseLogin() {
             </div>
 
             <div className="mt-7 flex items-center gap-3">
-              <img src="/brand/san-bartolomeo-logo.jpeg" alt="San Bartolomeo Inmobiliaria" className="h-8 w-8 rounded-md object-contain" />
               <span className="text-xs text-[#697386]">Gestión comercial · San Bartolomeo Inmobiliaria</span>
             </div>
           </div>

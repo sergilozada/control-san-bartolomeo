@@ -159,17 +159,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
-    const isAdminUser = user.role === 'admin';
-    const clientsQuery = isAdminUser
-      ? query(
-          collection(db, 'clients'),
-          orderBy('fechaRegistro', 'desc')
-        )
-      : query(
-          collection(db, 'clients'),
-          where('userId', '==', firebaseUser.uid),
-          orderBy('fechaRegistro', 'desc')
-        );
+    const clientsQuery = query(collection(db, 'clients'), orderBy('fechaRegistro', 'desc'));
 
     // Subscribe with an error callback so we can handle transient network/protocol errors
     const unsubscribe = onSnapshot(clientsQuery, (snapshot) => {
@@ -230,15 +220,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       // Verificar si ya existe un cliente con la misma manzana y lote
       // Firestore equality queries are exact; to avoid issues with case/whitespace
-      // and eventual consistency, fetch user's clients and compare normalized strings locally.
-      const isAdminUser = user?.role === 'admin';
-      const userClientsQuery = isAdminUser
-        ? query(collection(db, 'clients'))
-        : query(
-            collection(db, 'clients'),
-            where('userId', '==', firebaseUser.uid)
-          );
-      const snapshot = await getDocs(userClientsQuery);
+      // and eventual consistency, compare against the shared company portfolio.
+      const snapshot = await getDocs(query(collection(db, 'clients')));
       const normalizedNewManzana = (clientData.manzana || '').toString().trim().toLowerCase();
       const normalizedNewLote = (clientData.lote || '').toString().trim().toLowerCase();
 
@@ -518,14 +501,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const clientRef = doc(db, 'clients', clientId);
     const clientSnapshot = await getDoc(clientRef);
 
-    if (!clientSnapshot.exists()) {
-      throw new Error('El cliente no existe o no pertenece al usuario actual.');
-    }
+    if (!clientSnapshot.exists()) throw new Error('El cliente no existe.');
     const currentClientData = clientSnapshot.data();
-    const isAdminUser = user?.role === 'admin';
-    if (currentClientData.userId !== firebaseUser.uid && !isAdminUser) {
-      throw new Error('El cliente no existe o no pertenece al usuario actual.');
-    }
+    if (user?.role === 'readonly') throw new Error('No tienes permiso para editar.');
     if (!isLegacyMigrationEligible(currentClientData, CURRENT_PAYMENT_SCHEDULE_VERSION)) {
       throw new Error('Los clientes nuevos no requieren ni admiten migración.');
     }
@@ -557,17 +535,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       throw new Error('La versión del cronograma oficial no puede estar vacía.');
     }
 
-    // Consultar el estado vigente y limitarlo al usuario autenticado. Se filtra la
-    // migración en memoria para no exigir un índice compuesto adicional en Firestore.
-    const isAdminUser = user?.role === 'admin';
-    const ownedClientsSnapshot = await getDocs(
-      isAdminUser
-        ? query(collection(db, 'clients'))
-        : query(
-            collection(db, 'clients'),
-            where('userId', '==', firebaseUser.uid)
-          )
-    );
+    // Consultar toda la cartera compartida; se filtra la migración en memoria.
+    const ownedClientsSnapshot = await getDocs(query(collection(db, 'clients')));
     const migratedClientRefs = ownedClientsSnapshot.docs
       .filter(clientDoc => (
         isMigrationEnabled(clientDoc.data(), CURRENT_PAYMENT_SCHEDULE_VERSION)

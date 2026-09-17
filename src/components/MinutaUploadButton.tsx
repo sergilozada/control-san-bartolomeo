@@ -3,6 +3,8 @@ import { ExternalLink, FileCheck2, FileText, Loader2, Trash2, Upload } from 'luc
 import { toast } from 'sonner';
 import { deleteObject, getDownloadURL, getMetadata, listAll, ref as storageRef, uploadBytes } from 'firebase/storage';
 import { storage } from '@/services/firebase';
+import { useAuth } from '@/context/FirebaseAuthContext';
+import { updateClientWithAudit } from '@/services/audit';
 import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
@@ -45,6 +47,7 @@ const sanitizeFileName = (fileName: string) => (
 );
 
 export default function MinutaUploadButton({ clientId, clientName }: MinutaUploadButtonProps) {
+  const { firebaseUser, user } = useAuth();
   const inputRef = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -89,6 +92,7 @@ export default function MinutaUploadButton({ clientId, clientName }: MinutaUploa
     const file = event.target.files?.[0];
     event.target.value = '';
     if (!file) return;
+    if (!firebaseUser || user?.role === 'readonly') return;
 
     const extension = file.name.split('.').pop()?.toLowerCase() || '';
     if (!ACCEPTED_EXTENSIONS.includes(extension)) {
@@ -110,6 +114,14 @@ export default function MinutaUploadButton({ clientId, clientName }: MinutaUploa
         contentType: file.type || undefined,
         customMetadata: { originalName: file.name },
       });
+      try {
+        await updateClientWithAudit(firebaseUser, clientId, {
+          lastDocumentEvent: { action: 'subir', name: file.name, at: new Date().toISOString() },
+        }, `Minuta subida: ${file.name}`);
+      } catch (auditError) {
+        console.error('La minuta se subió sin registrar el historial:', auditError);
+        toast.warning('Minuta subida, pero no se pudo registrar en el historial');
+      }
 
       await loadMinutes();
       toast.success('Minuta subida correctamente');
@@ -123,10 +135,19 @@ export default function MinutaUploadButton({ clientId, clientName }: MinutaUploa
 
   const handleDeleteMinute = async () => {
     if (!minuteToDelete) return;
+    if (!firebaseUser || user?.role === 'readonly') return;
 
     setDeleting(true);
     try {
       await deleteObject(storageRef(storage, minuteToDelete.path));
+      try {
+        await updateClientWithAudit(firebaseUser, clientId, {
+          lastDocumentEvent: { action: 'eliminar', name: minuteToDelete.name, at: new Date().toISOString() },
+        }, `Minuta eliminada: ${minuteToDelete.name}`);
+      } catch (auditError) {
+        console.error('La minuta se eliminó sin registrar el historial:', auditError);
+        toast.warning('Minuta eliminada, pero no se pudo registrar en el historial');
+      }
       setMinutes(current => current.filter(minute => minute.path !== minuteToDelete.path));
       setMinuteToDelete(null);
       toast.success('Minuta eliminada correctamente');
@@ -172,7 +193,7 @@ export default function MinutaUploadButton({ clientId, clientName }: MinutaUploa
             onChange={handleFileChange}
           />
 
-          <button
+          {user?.role !== 'readonly' && <button
             type="button"
             onClick={() => inputRef.current?.click()}
             disabled={uploading}
@@ -187,7 +208,7 @@ export default function MinutaUploadButton({ clientId, clientName }: MinutaUploa
               {uploading ? 'Subiendo minuta…' : 'Seleccionar minuta'}
             </span>
             <span className="mt-1 text-sm text-[#697386]">PDF, DOC o DOCX · máximo 15 MB</span>
-          </button>
+          </button>}
 
           <section aria-labelledby={`minutes-${clientId}`}>
             <div className="mb-3 flex items-center justify-between gap-3">
@@ -226,7 +247,7 @@ export default function MinutaUploadButton({ clientId, clientName }: MinutaUploa
                       </span>
                       <ExternalLink className="h-4 w-4 shrink-0 text-[#9aa29a] group-hover:text-[#5c3585]" />
                     </a>
-                    <Button
+                    {user?.role !== 'readonly' && <Button
                       type="button"
                       size="icon"
                       variant="ghost"
@@ -236,7 +257,7 @@ export default function MinutaUploadButton({ clientId, clientName }: MinutaUploa
                       title="Eliminar minuta"
                     >
                       <Trash2 className="h-4 w-4" />
-                    </Button>
+                    </Button>}
                   </div>
                 ))}
               </div>

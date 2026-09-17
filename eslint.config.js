@@ -24,6 +24,8 @@ export default tseslint.config(
         { allowConstantExport: true },
       ],
       "@typescript-eslint/no-unused-vars": "off",
+      // Reportes heredados y datos flexibles de Firestore aún usan `any`.
+      "@typescript-eslint/no-explicit-any": "off",
     },
   }
 );

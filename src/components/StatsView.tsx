@@ -254,7 +254,6 @@ export default function StatsView({ showReport = false }: StatsViewProps) {
             styles: { fontSize: 10 },
             columnStyles: { 0: { cellWidth: 100 }, 1: { halign: 'right' } }
           });
-          // @ts-ignore - lastAutoTable is injected by the plugin
           afterSummaryY = (doc as any).lastAutoTable ? (doc as any).lastAutoTable.finalY + 8 : titleY + 60;
         } else {
           // fallback: draw as text lines

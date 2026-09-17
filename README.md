@@ -7,7 +7,7 @@ Panel independiente para clientes, lotes, cuotas, pagos y documentos de San Bart
 - La aplicación compila y muestra una pantalla de configuración hasta conectarla a un Firebase nuevo.
 - En **Clientes**, «No adeudo» genera un PDF para revisión cuando todas las cuotas registradas están pagadas.
 - En **Atrasados**, «Borrador de resolución» se habilita con tres cuotas vencidas e impagas. No cambia el contrato ni envía comunicaciones.
-- **Historial** muestra al administrador los cambios de clientes y cuotas, con usuario y fecha. Las reglas de Firestore restringen su lectura.
+- **Historial** muestra al administrador los cambios de clientes, cuotas y minutas adjuntas, con usuario y fecha. Las reglas de Firestore restringen su lectura.
 - **Minutas** queda visible, pendiente de una plantilla y un servicio propios de San Bartolomeo. Nunca debe conectarse al servicio de Villa Hermosa.
 
 ## Configuración de Firebase paso a paso
@@ -19,7 +19,7 @@ Panel independiente para clientes, lotes, cuotas, pagos y documentos de San Bart
 5. Crea **Cloud Storage** si usarás vouchers, boletas y minutas adjuntas. Para un bucket nuevo, Firebase exige el plan Blaze; revisa precios y alertas de presupuesto en la consola antes de habilitarlo.
 6. Instala Node.js y Firebase CLI si faltan. En esta carpeta ejecuta `pnpm install`, `pnpm build`, `firebase login` y `firebase use --add`. Selecciona exclusivamente el proyecto nuevo. Elige un alias como `san-bartolomeo`.
 7. Revisa que `.firebaserc` contenga solo el ID nuevo. Publica reglas y sitio con `firebase deploy --only firestore:rules,storage,hosting --project ID_NUEVO`. La carpeta pública de Hosting ya está definida como `dist` y las rutas usan `index.html`.
-8. Inicia sesión con el admin. Para cada persona adicional, crea su cuenta en Authentication y un documento `users/{UID}` con `name`, `role` (`admin`, `full` o `readonly`) y `active: true`. `full` ve y edita sus clientes; `readonly` solo lee los suyos; `admin` ve todos y el historial. No reutilices UIDs del proyecto anterior.
+8. Inicia sesión con el admin. Para cada persona adicional, crea su cuenta en Authentication y un documento `users/{UID}` con `name`, `role` (`admin`, `full` o `readonly`) y `active: true`. Todos ven la cartera compartida; `full` puede editar, `readonly` solo lee y `admin` además ve el historial y puede eliminar clientes. No reutilices UIDs del proyecto anterior.
 9. Verifica en el sitio nuevo: acceso de admin, creación y edición de un cliente de prueba, registro de una cuota pagada, historial visible solo para admin y acceso denegado a un usuario sin perfil.
 
 Para desarrollo local: `pnpm dev`. Si `.env.local` no existe, verás la pantalla de configuración. Los valores de la configuración web de Firebase se incorporan al paquete del navegador; la seguridad depende de Authentication y de `firestore.rules`/`storage.rules`, no de ocultar el API key.
@@ -32,4 +32,4 @@ La mora usa S/ 2 por día desde el octavo día de atraso, interpretado como S/ 2
 
 ## GitHub
 
-Este directorio es un proyecto Git separado. Publícalo en un repositorio **privado** nuevo, sin arrastrar el remoto de Villa Hermosa. `.env.local`, `node_modules` y `dist` están ignorados. Los contratos de muestra contienen datos de clientes y no se incluyen en el repositorio.
+Este directorio es un proyecto Git separado, publicado en el [repositorio privado de San Bartolomeo](https://github.com/sergilozada/control-san-bartolomeo). `.env.local`, `node_modules` y `dist` están ignorados. Los contratos de muestra contienen datos de clientes y no se incluyen en el repositorio.

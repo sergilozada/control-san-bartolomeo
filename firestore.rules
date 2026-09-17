@@ -25,12 +25,10 @@ service cloud.firestore {
       allow create, update, delete: if admin();
     }
     match /clients/{clientId} {
-      allow get, list: if active() &&
-        (admin() || resource.data.userId == request.auth.uid);
+      allow get, list: if active();
       allow create: if editor() && request.resource.data.userId == request.auth.uid
         && auditMatches(clientId, 'crear', request.resource.data.lastAuditId);
       allow update: if editor() &&
-        (admin() || resource.data.userId == request.auth.uid) &&
         request.resource.data.userId == resource.data.userId &&
         request.resource.data.lastAuditId != resource.data.lastAuditId &&
         auditMatches(clientId, 'actualizar', request.resource.data.lastAuditId);

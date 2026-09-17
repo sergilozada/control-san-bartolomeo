@@ -11,13 +11,9 @@ service firebase.storage {
     }
     function admin() { return active() && profile().role == 'admin'; }
     function editor() { return active() && profile().role in ['admin', 'full']; }
-    function owns(clientId) {
-      return firestore.exists(/databases/(default)/documents/clients/$(clientId)) &&
-        firestore.get(/databases/(default)/documents/clients/$(clientId)).data.userId == request.auth.uid;
-    }
     match /clients/{clientId}/{allPaths=**} {
-      allow read: if active() && (admin() || owns(clientId));
-      allow write: if editor() && (admin() || owns(clientId));
+      allow read: if active() && firestore.exists(/databases/(default)/documents/clients/$(clientId));
+      allow write: if editor() && firestore.exists(/databases/(default)/documents/clients/$(clientId));
     }
   }
 }

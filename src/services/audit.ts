@@ -4,7 +4,7 @@ import { db } from '@/services/firebase';
 
 export type AuditAction = 'crear' | 'actualizar' | 'eliminar';
 
-function addAudit(batch: WriteBatch, actor: User, clientId: string, action: AuditAction, fields: string[]) {
+function addAudit(batch: WriteBatch, actor: User, clientId: string, action: AuditAction, fields: string[], summary = '') {
   const entry = doc(collection(db, 'auditLogs'));
   batch.set(entry, {
     actorUid: actor.uid,
@@ -12,6 +12,7 @@ function addAudit(batch: WriteBatch, actor: User, clientId: string, action: Audi
     clientId,
     action,
     fields,
+    summary,
     createdAt: serverTimestamp(),
   });
   return entry.id;
@@ -27,10 +28,10 @@ export async function createClientWithAudit(actor: User, data: Record<string, un
 }
 
 export async function updateClientWithAudit(
-  actor: User, clientId: string, data: Record<string, unknown>,
+  actor: User, clientId: string, data: Record<string, unknown>, summary = '',
 ) {
   const batch = writeBatch(db);
-  const lastAuditId = addAudit(batch, actor, clientId, 'actualizar', Object.keys(data));
+  const lastAuditId = addAudit(batch, actor, clientId, 'actualizar', Object.keys(data), summary);
   batch.update(doc(db, 'clients', clientId), { ...data, lastAuditId });
   await batch.commit();
 }

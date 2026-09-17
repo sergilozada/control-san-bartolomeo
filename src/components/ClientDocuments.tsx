@@ -42,11 +42,27 @@ function header(pdf: jsPDF, title: string) {
 }
 function paragraph(pdf: jsPDF, text: string, y: number) {
   const lines = pdf.splitTextToSize(text, 174);
-  pdf.text(lines, 18, y);
-  return y + lines.length * 5.5 + 7;
+  for (const line of lines) {
+    if (y > 265) {
+      pdf.addPage();
+      y = 25;
+    }
+    pdf.text(line, 18, y);
+    y += 5.5;
+  }
+  return y + 7;
 }
 function save(pdf: jsPDF, prefix: string, client: DocumentClient) {
-  pdf.save(`${prefix}-mz-${client.manzana}-lote-${client.lote}.pdf`);
+  const safe = (value: string) => value.replace(/[^a-zA-Z0-9-]/g, '_');
+  pdf.save(`${prefix}-mz-${safe(client.manzana)}-lote-${safe(client.lote)}.pdf`);
+}
+function signature(pdf: jsPDF, y: number) {
+  if (y > 250) {
+    pdf.addPage();
+    y = 35;
+  }
+  pdf.text('_______________________________', 18, y + 15);
+  pdf.text('Firma y sello autorizados', 18, y + 21);
 }
 
 export function NoDebtCertificateButton({ client }: { client: DocumentClient }) {
@@ -58,8 +74,7 @@ export function NoDebtCertificateButton({ client }: { client: DocumentClient }) 
     header(pdf, 'CONSTANCIA DE NO ADEUDO');
     let y = paragraph(pdf, `San Bartolomeo S.A.C. deja constancia de que, según los pagos registrados en este sistema al ${formatDate(todayIso())}, ${getClientDisplayName(client)}, identificado(a) con DNI ${getClientDisplayDnis(client)}, no presenta cuotas pendientes respecto del lote Mz. ${client.manzana}, Lote ${client.lote}.`, 65);
     y = paragraph(pdf, 'Esta constancia se limita al cronograma de cuotas registrado. Debe contrastarse con los comprobantes y la contabilidad antes de su firma o entrega. No acredita obligaciones ajenas a ese cronograma.', y);
-    pdf.text('_______________________________', 18, Math.max(y + 20, 143));
-    pdf.text('Firma y sello autorizados', 18, Math.max(y + 26, 149));
+    signature(pdf, Math.max(y, 123));
     save(pdf, 'constancia-no-adeudo', client);
   };
   return <Button size="sm" variant="outline" disabled={!canIssue} onClick={generate}
@@ -83,8 +98,7 @@ export function ResolutionDraftButton({ client }: { client: DocumentClient }) {
     y = paragraph(pdf, 'Asunto: revisión de posible resolución del contrato preparatorio de transferencia de derechos posesorios por falta de pago. Verificar que el contrato firmado de este cliente contiene la cláusula 6.1 y los medios de notificación pactados.', y);
     y = paragraph(pdf, `Al ${formatDate(todayIso())}, el sistema registra ${overdue.length} cuotas vencidas sin pago: ${overdue.map(c => `N.° ${c.numero} (venció ${formatDate(c.vencimiento)}, S/ ${c.monto.toFixed(2)})`).join('; ')}.`, y);
     y = paragraph(pdf, 'Antes de decidir o comunicar una resolución, el área responsable debe verificar el contrato suscrito, pagos recientes, comprobantes, abonos parciales, identidad y domicilio o correo pactado. La generación de este borrador no modifica el estado del contrato ni constituye notificación.', y);
-    pdf.text('_______________________________', 18, Math.min(y + 16, 268));
-    pdf.text('Revisión y firma autorizada', 18, Math.min(y + 22, 274));
+    signature(pdf, y);
     save(pdf, 'borrador-resolucion', client);
   };
   return <Button size="sm" variant="outline" disabled={!canDraft} onClick={generate}
