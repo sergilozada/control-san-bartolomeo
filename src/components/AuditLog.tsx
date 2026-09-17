@@ -12,13 +12,14 @@ interface Entry {
   action: string;
   fields: string[];
   summary?: string;
-  createdAt?: Timestamp;
+  createdAt?: Timestamp | Date;
 }
 
 export default function AuditLog() {
-  const { preview } = useAuth();
+  const { preview, demoAuditEntries } = useAuth();
   const [entries, setEntries] = useState<Entry[]>([]);
   const [error, setError] = useState('');
+  const visibleEntries: Entry[] = preview ? (demoAuditEntries || []) : entries;
   useEffect(() => {
     if (preview) return;
     return onSnapshot(
@@ -33,13 +34,13 @@ export default function AuditLog() {
     </CardHeader>
     <CardContent>
       {error && <p role="alert" className="text-rose-700">{error}</p>}
-      {preview && <p className="text-sm text-slate-500">Vista de muestra: aquí aparecerá quién hizo cada cambio y cuándo.</p>}
-      {!preview && !error && entries.length === 0 && <p className="text-sm text-slate-500">Aún no hay cambios registrados.</p>}
+      {preview && <p className="text-sm text-slate-500">Demostración local: los cambios de muestra se borran al recargar. Solo el administrador ve este historial.</p>}
+      {!error && visibleEntries.length === 0 && <p className="text-sm text-slate-500">Aún no hay cambios registrados. Prueba una observación o un pago de muestra.</p>}
       <div className="space-y-2">
-        {entries.map(entry => <div key={entry.id} className="rounded-xl border border-slate-200 p-3 text-sm">
+        {visibleEntries.map(entry => <div key={entry.id} className="rounded-xl border border-slate-200 p-3 text-sm">
           <div className="flex flex-wrap justify-between gap-2">
             <strong>{entry.actorEmail} · {entry.action}</strong>
-            <time className="text-slate-500">{entry.createdAt?.toDate().toLocaleString('es-PE') || 'Pendiente'}</time>
+            <time className="text-slate-500">{(entry.createdAt instanceof Date ? entry.createdAt : entry.createdAt?.toDate())?.toLocaleString('es-PE') || 'Pendiente'}</time>
           </div>
           <p className="mt-1 text-slate-600">{entry.minuteId ? `Minuta: ${entry.minuteId}` : `Cliente: ${entry.clientId}`}</p>
           {entry.summary && <p className="text-slate-600">{entry.summary}</p>}

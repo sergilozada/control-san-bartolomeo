@@ -32,7 +32,7 @@ import { MinutasWorkspace } from '@/features/minutas';
 import AuditLog from '@/components/AuditLog';
 import type { Titular } from '@/types/client';
 import { getClientDisplayDnis, getClientDisplayName } from '@/types/client';
-import { canManageClients, canManageMinutes, canRegisterPayments, canViewAnalytics, roleLabel } from '@/config/permissions';
+import { canManageClients, canManageMinutes, canRegisterPayments, canViewAnalytics, roleLabel, type UserRole } from '@/config/permissions';
 
 interface Client {
   id: string;
@@ -82,7 +82,7 @@ const menuItems = [
 ];
 
 export default function FirebaseDashboard({ demo = false }: { demo?: boolean }) {
-  const { logout, user, clients, searchClients, setSelectedClientId } = useAuth();
+  const { logout, user, clients, searchClients, setSelectedClientId, setPreviewRole } = useAuth();
   const [activeTab, setActiveTab] = useState('inicio');
   const [navigationOpen, setNavigationOpen] = useState(true);
   const [showNewClient, setShowNewClient] = useState(false);
@@ -181,7 +181,14 @@ export default function FirebaseDashboard({ demo = false }: { demo?: boolean }) 
 
   return (
     <div className="vh-dashboard-shell sb-design-alt min-h-screen bg-[#f2f1ec] text-[#182033]">
-      {demo && <div className="sb-demo-banner bg-[#ffedcc] px-4 py-2 text-center text-sm font-medium text-[#69430d]">Vista previa local · datos ficticios · los cambios no se guardan</div>}
+      {demo && <div className="sb-demo-banner flex flex-wrap items-center justify-center gap-x-4 gap-y-2 bg-[#ffedcc] px-4 py-2 text-center text-sm font-medium text-[#69430d]">
+        <span>Vista previa local · datos ficticios · los cambios no se guardan</span>
+        <label className="flex items-center gap-2">Usuario de muestra
+          <select aria-label="Usuario de muestra" value={user?.role || 'admin'} onChange={event => { setPreviewRole?.(event.target.value as UserRole); setActiveTab('inicio'); }} className="rounded-xl border border-[#d2b97e] bg-white px-2 py-1 text-[#33204f]">
+            {(Object.keys(roleLabel) as UserRole[]).map(role => <option key={role} value={role}>{roleLabel[role]}</option>)}
+          </select>
+        </label>
+      </div>}
       <header className="vh-header-enter sticky top-0 z-40 border-b border-[#d9ddd9]/90 bg-[#fffefb]/95 backdrop-blur-xl">
         <div className="flex h-16 w-full items-center justify-between gap-2 px-2.5 sm:gap-4 sm:px-5 lg:px-6">
           <button

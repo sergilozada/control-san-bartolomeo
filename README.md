@@ -14,6 +14,10 @@ Panel independiente para clientes, lotes, cuotas, pagos y documentos de San Bart
 - El diseño propuesto morado y turquesa es ahora el diseño oficial. Los tres PDF de Proyección comparten cabecera morada, logo en la esquina superior derecha, tabla y pie de página.
 - La migración de cuotas de Villa Hermosa se retiró de esta aplicación.
 
+## Demostración local del historial
+
+Abre `http://127.0.0.1:5173/?demo`. En la franja superior cambia **Usuario de muestra** a **Registro de pagos**, entra en **Pendientes**, abre las cuotas de un cliente y marca una cuota como pagada. Luego cambia a **Administrador** y entra en **Historial**. Verás el correo ficticio `pagos@sanbartolomeo.example`, la acción, la cuota y la hora. El usuario Pagos no ve Historial. El administrador también puede crear una anotación en **Clientes → Libro de observaciones** y verla registrada. Todo esto se borra al recargar y no crea cuentas ni datos en Firebase.
+
 ## Configuración de Firebase paso a paso
 
 1. En [Firebase Console](https://console.firebase.google.com/), crea un **proyecto nuevo** con un ID distinto de `villa-hermosa-lotes` y `minutas-villa-hermosa`. Anota el ID exacto.

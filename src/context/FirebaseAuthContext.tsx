@@ -33,6 +33,23 @@ interface User {
   email: string;
 }
 
+export interface DemoAuditEntry {
+  id: string;
+  actorEmail: string;
+  clientId: string;
+  action: string;
+  fields: string[];
+  summary: string;
+  createdAt: Date;
+}
+
+const demoAccounts: Record<UserRole, { username: string; email: string }> = {
+  admin: { username: 'Administrador de muestra', email: 'admin@sanbartolomeo.example' },
+  pagos: { username: 'Pagos de muestra', email: 'pagos@sanbartolomeo.example' },
+  boletas: { username: 'Boletas de muestra', email: 'boletas@sanbartolomeo.example' },
+  legal: { username: 'Legal de muestra', email: 'legal@sanbartolomeo.example' },
+};
+
 interface Client {
   id: string;
   titulares?: Titular[];
@@ -73,6 +90,8 @@ interface Cuota {
 
 interface AuthContextType {
   preview?: boolean;
+  demoAuditEntries?: DemoAuditEntry[];
+  setPreviewRole?: (role: UserRole) => void;
   user: User | null;
   firebaseUser: FirebaseUser | null;
   clients: Client[];
@@ -113,6 +132,9 @@ export const useOptionalAuth = () => useContext(AuthContext);
 // Vista local aislada: datos ficticios y ninguna conexión a Firestore.
 export const DemoAuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  const [previewRole, setPreviewRole] = useState<UserRole>('admin');
+  const [demoOverrides, setDemoOverrides] = useState<Record<string, Client>>({});
+  const [demoAuditEntries, setDemoAuditEntries] = useState<DemoAuditEntry[]>([]);
   const [observations, setObservations] = useState<Record<string, ObservationEntry[]>>({});
   const today = new Date();
   const iso = (offsetMonths: number) => {
@@ -124,8 +146,14 @@ export const DemoAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     { id: 'demo-2', userId: 'demo', nombre1: 'Carlos Vega', dni1: '00000002', manzana: 'B', lote: '07', metraje: 150, montoTotal: 60000, formaPago: 'cuotas', inicial: 15000, numeroCuotas: 5, fechaRegistro: iso(-5), cuotas: [-3, -2, -1, 0, 1].map((month, index) => ({ numero: index + 1, vencimiento: iso(month), monto: 9000, estado: 'pendiente' as const })) },
     { id: 'demo-3', userId: 'demo', nombre1: 'Elena Ruiz', dni1: '00000003', manzana: 'C', lote: '04', metraje: 110, montoTotal: 44000, formaPago: 'cuotas', inicial: 11000, numeroCuotas: 3, fechaRegistro: iso(-1), cuotas: [0, 1, 2].map((month, index) => ({ numero: index + 1, vencimiento: iso(month), monto: 11000, estado: 'pendiente' as const })) },
   ];
-  const clients = demoClients.map(client => ({ ...client, observationEntries: observations[client.id] || [] }));
+  const clients = demoClients.map(client => ({ ...client, ...demoOverrides[client.id], observationEntries: observations[client.id] || [] }));
   const previewOnly = async (): Promise<never> => { throw new Error('La vista previa no guarda cambios.'); };
+  const recordDemoChange = (clientId: string, action: string, fields: string[], summary: string) => {
+    setDemoAuditEntries(current => [{
+      id: crypto.randomUUID(), actorEmail: demoAccounts[previewRole].email,
+      clientId, action, fields, summary, createdAt: new Date(),
+    }, ...current]);
+  };
   const formatLocalISO = (date?: Date | string) => {
     const value = date ? new Date(date) : new Date();
     return [value.getFullYear(), String(value.getMonth() + 1).padStart(2, '0'), String(value.getDate()).padStart(2, '0')].join('-');
@@ -135,7 +163,8 @@ export const DemoAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return new Date(year, month - 1, day);
   };
   return <AuthContext.Provider value={{
-    preview: true, user: { id: 'demo', username: 'Vista previa', role: 'admin', email: '' },
+    preview: true, demoAuditEntries, setPreviewRole,
+    user: { id: `demo-${previewRole}`, ...demoAccounts[previewRole], role: previewRole },
     firebaseUser: null, clients, selectedClientId, loading: false, setSelectedClientId,
     formatLocalISO, parseLocalDate,
     login: async () => false, resetPassword: previewOnly,
@@ -147,12 +176,29 @@ export const DemoAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       (!manzana || client.manzana.toLowerCase().includes(manzana.toLowerCase())) &&
       (!lote || client.lote.toLowerCase().includes(lote.toLowerCase())) &&
       (!dniNombre || clientMatchesTitular(client, dniNombre))),
-    markCuotaAsPaid: previewOnly, updateCuotaAmount: previewOnly,
+    markCuotaAsPaid: async (clientId, cuotaIndex, fechaPago) => {
+      if (!canRegisterPayments(previewRole)) throw new Error('Este usuario no registra pagos.');
+      const client = clients.find(item => item.id === clientId);
+      if (!client?.cuotas?.[cuotaIndex] || client.cuotas[cuotaIndex].estado === 'pagado') throw new Error('Cuota no disponible.');
+      setDemoOverrides(current => ({
+        ...current,
+        [clientId]: {
+          ...client,
+          cuotas: client.cuotas!.map((cuota, index) => index === cuotaIndex
+            ? { ...cuota, estado: 'pagado' as const, fechaPago } : cuota),
+        },
+      }));
+      recordDemoChange(clientId, 'pago_registrar', ['cuotas'], `Cuota ${client.cuotas[cuotaIndex].numero} marcada pagada (muestra)`);
+    }, updateCuotaAmount: previewOnly,
     updateCuotaDates: previewOnly,
-    appendObservation: async (clientId, value) => setObservations(current => ({
-      ...current,
-      [clientId]: [...(current[clientId] || []), { id: crypto.randomUUID(), text: value.trim(), author: 'Vista previa', at: new Date().toISOString() }],
-    })),
+    appendObservation: async (clientId, value) => {
+      if (!canManageClients(previewRole)) throw new Error('Solo el administrador agrega observaciones.');
+      setObservations(current => ({
+        ...current,
+        [clientId]: [...(current[clientId] || []), { id: crypto.randomUUID(), text: value.trim(), author: demoAccounts[previewRole].email, at: new Date().toISOString() }],
+      }));
+      recordDemoChange(clientId, 'actualizar', ['observationEntries'], 'Nueva anotación en el libro de observaciones (muestra)');
+    },
   }}>{children}</AuthContext.Provider>;
 };
 
