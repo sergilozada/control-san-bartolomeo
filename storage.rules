@@ -1,0 +1,23 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function profile() {
+      return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data;
+    }
+    function active() {
+      return request.auth != null &&
+        firestore.exists(/databases/(default)/documents/users/$(request.auth.uid)) &&
+        profile().active == true;
+    }
+    function admin() { return active() && profile().role == 'admin'; }
+    function editor() { return active() && profile().role in ['admin', 'full']; }
+    function owns(clientId) {
+      return firestore.exists(/databases/(default)/documents/clients/$(clientId)) &&
+        firestore.get(/databases/(default)/documents/clients/$(clientId)).data.userId == request.auth.uid;
+    }
+    match /clients/{clientId}/{allPaths=**} {
+      allow read: if active() && (admin() || owns(clientId));
+      allow write: if editor() && (admin() || owns(clientId));
+    }
+  }
+}

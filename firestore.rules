@@ -1,0 +1,59 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function profile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    function active() {
+      return signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && profile().active == true;
+    }
+    function admin() { return active() && profile().role == 'admin'; }
+    function editor() { return active() && profile().role in ['admin', 'full']; }
+    function auditMatches(clientId, action, auditId) {
+      let path = /databases/$(database)/documents/auditLogs/$(auditId);
+      return auditId is string && existsAfter(path)
+        && getAfter(path).data.actorUid == request.auth.uid
+        && getAfter(path).data.clientId == clientId
+        && getAfter(path).data.action == action
+        && getAfter(path).data.createdAt == request.time;
+    }
+    match /users/{uid} {
+      allow get: if admin() || (active() && request.auth.uid == uid);
+      allow list: if admin();
+      allow create, update, delete: if admin();
+    }
+    match /clients/{clientId} {
+      allow get, list: if active() &&
+        (admin() || resource.data.userId == request.auth.uid);
+      allow create: if editor() && request.resource.data.userId == request.auth.uid
+        && auditMatches(clientId, 'crear', request.resource.data.lastAuditId);
+      allow update: if editor() &&
+        (admin() || resource.data.userId == request.auth.uid) &&
+        request.resource.data.userId == resource.data.userId &&
+        request.resource.data.lastAuditId != resource.data.lastAuditId &&
+        auditMatches(clientId, 'actualizar', request.resource.data.lastAuditId);
+      allow delete: if admin();
+    }
+    match /auditLogs/{auditId} {
+      allow get, list: if admin();
+      allow create: if editor()
+        && request.resource.data.actorUid == request.auth.uid
+        && request.resource.data.actorEmail == request.auth.token.email
+        && request.resource.data.clientId is string
+        && request.resource.data.action in ['crear', 'actualizar', 'eliminar']
+        && request.resource.data.fields is list
+        && request.resource.data.createdAt == request.time
+        && (
+          (request.resource.data.action == 'eliminar' && admin()
+            && exists(/databases/$(database)/documents/clients/$(request.resource.data.clientId))
+            && !existsAfter(/databases/$(database)/documents/clients/$(request.resource.data.clientId)))
+          || (request.resource.data.action in ['crear', 'actualizar']
+            && existsAfter(/databases/$(database)/documents/clients/$(request.resource.data.clientId))
+            && getAfter(/databases/$(database)/documents/clients/$(request.resource.data.clientId)).data.lastAuditId == auditId)
+        );
+      allow update, delete: if false;
+    }
+  }
+}
