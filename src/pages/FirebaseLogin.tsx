@@ -15,7 +15,7 @@ import {
 import { FirebaseError } from 'firebase/app';
 import { Eye, EyeOff, Leaf, LoaderCircle, LockKeyhole, MailCheck, Send, ShieldCheck } from 'lucide-react';
 
-export default function FirebaseLogin() {
+export default function FirebaseLogin({ preview = false }: { preview?: boolean }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -140,6 +140,10 @@ export default function FirebaseLogin() {
             <p className="mt-3 text-sm leading-6 text-[#697386]">
               Ingresa tus credenciales para continuar a San Bartolomeo Inmobiliaria.
             </p>
+            {preview && <div className="mt-5 rounded-xl border border-[#e9d4ae] bg-[#fff7e7] p-3 text-sm text-[#69430d]">
+              Firebase aún no está conectado. Puedes recorrer el panel con datos ficticios.
+              <a href="?demo" className="mt-3 flex min-h-10 items-center justify-center rounded-lg bg-[#54317f] px-4 font-semibold text-white hover:bg-[#33204f]">Entrar a la vista de muestra</a>
+            </div>}
 
             <form onSubmit={handleSubmit} className="mt-8 space-y-5" aria-busy={loading}>
               <div className="space-y-2">
@@ -152,6 +156,7 @@ export default function FirebaseLogin() {
                   onChange={event => setEmail(event.target.value)}
                   placeholder="nombre@empresa.com"
                   required
+                  disabled={preview}
                   className="h-12 rounded-xl bg-white transition-[border-color,box-shadow] duration-200 focus-visible:border-[#5c3585]"
                 />
               </div>
@@ -167,6 +172,7 @@ export default function FirebaseLogin() {
                     onChange={event => setPassword(event.target.value)}
                     placeholder="Ingresa tu contraseña"
                     required
+                    disabled={preview}
                     className="h-12 rounded-xl bg-white pr-12 transition-[border-color,box-shadow] duration-200 focus-visible:border-[#5c3585]"
                   />
                   <button
@@ -182,6 +188,7 @@ export default function FirebaseLogin() {
                   <button
                     type="button"
                     onClick={openResetDialog}
+                    disabled={preview}
                     className="-mr-2 inline-flex min-h-11 items-center rounded-lg px-2 text-sm font-semibold text-[#54317f] transition-colors hover:bg-[#f2ebf7] hover:text-[#095c63] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5c3585] focus-visible:ring-offset-2"
                   >
                     ¿Olvidaste tu contraseña?
@@ -195,7 +202,7 @@ export default function FirebaseLogin() {
                 </Alert>
               )}
 
-              <Button type="submit" size="lg" className="vh-primary-action h-12 w-full rounded-xl bg-gradient-to-r from-[#5c3585] to-[#54317f] shadow-[0_10px_24px_rgba(13,111,120,0.22)]" disabled={loading}>
+              <Button type="submit" size="lg" className="vh-primary-action h-12 w-full rounded-xl bg-gradient-to-r from-[#5c3585] to-[#54317f] shadow-[0_10px_24px_rgba(13,111,120,0.22)]" disabled={loading || preview}>
                 {loading ? (
                   <>
                     <LoaderCircle className="h-4 w-4 animate-spin motion-reduce:animate-none" />

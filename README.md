@@ -22,7 +22,7 @@ Panel independiente para clientes, lotes, cuotas, pagos y documentos de San Bart
 8. Inicia sesión con el admin. Para cada persona adicional, crea su cuenta en Authentication y un documento `users/{UID}` con `name`, `role` (`admin`, `full` o `readonly`) y `active: true`. Todos ven la cartera compartida; `full` puede editar, `readonly` solo lee y `admin` además ve el historial y puede eliminar clientes. No reutilices UIDs del proyecto anterior.
 9. Verifica en el sitio nuevo: acceso de admin, creación y edición de un cliente de prueba, registro de una cuota pagada, historial visible solo para admin y acceso denegado a un usuario sin perfil.
 
-Para desarrollo local: `pnpm dev`. Si `.env.local` no existe, verás la pantalla de configuración. Los valores de la configuración web de Firebase se incorporan al paquete del navegador; la seguridad depende de Authentication y de `firestore.rules`/`storage.rules`, no de ocultar el API key.
+Para desarrollo local: `pnpm dev`. Si `.env.local` no existe, verás el login con **Entrar a la vista de muestra**. Esa vista usa datos ficticios, no guarda cambios y solo existe en el servidor de desarrollo. Los valores de la configuración web de Firebase se incorporan al paquete del navegador; la seguridad depende de Authentication y de `firestore.rules`/`storage.rules`, no de ocultar el API key.
 
 ## Documentos y decisiones pendientes
 

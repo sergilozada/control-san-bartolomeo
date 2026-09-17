@@ -1,7 +1,7 @@
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { AuthProvider, useAuth } from '@/context/FirebaseAuthContext';
+import { AuthProvider, DemoAuthProvider, useAuth } from '@/context/FirebaseAuthContext';
 import FirebaseLogin from '@/pages/FirebaseLogin';
 import FirebaseDashboard from '@/pages/FirebaseDashboard';
 import ErrorBoundary from '@/components/ErrorBoundary';
@@ -23,7 +23,15 @@ function AppContent() {
 }
 
 export default function App() {
+  if (import.meta.env.DEV && !isFirebaseConfigured && new URLSearchParams(window.location.search).has('demo')) {
+    return <QueryClientProvider client={queryClient}>
+      <TooltipProvider><Toaster /><ErrorBoundary><DemoAuthProvider><FirebaseDashboard demo /></DemoAuthProvider></ErrorBoundary></TooltipProvider>
+    </QueryClientProvider>;
+  }
   if (!isFirebaseConfigured) {
+    if (import.meta.env.DEV) return <QueryClientProvider client={queryClient}>
+      <TooltipProvider><Toaster /><ErrorBoundary><DemoAuthProvider><FirebaseLogin preview /></DemoAuthProvider></ErrorBoundary></TooltipProvider>
+    </QueryClientProvider>;
     return <main className="grid min-h-screen place-items-center bg-[#f7f4fb] p-6 text-center">
       <div className="max-w-lg rounded-2xl bg-white p-8 shadow-lg">
         <img src="/brand/san-bartolomeo-logo.jpeg" alt="San Bartolomeo" className="mx-auto h-24 w-72 max-w-full object-cover" />

@@ -179,6 +179,7 @@ const normalizeAttachments = (raw: Cuota['voucher']): StoredAttachment[] => {
 export default function ClientList({ filterType = 'all' }: ClientListProps) {
   const {
     user,
+    preview,
     clients,
     deleteClient,
     updateClient,
@@ -1566,7 +1567,7 @@ export default function ClientList({ filterType = 'all' }: ClientListProps) {
   )).length;
   const showDebtColumn = filterType === 'pending' || filterType === 'overdue';
   const showStatusColumn = filterType === 'all';
-  const showMinuteAction = filterType === 'all';
+  const showMinuteAction = filterType === 'all' && !preview;
 
   return (
     <div className="w-full space-y-6">
@@ -1664,13 +1665,13 @@ export default function ClientList({ filterType = 'all' }: ClientListProps) {
               <Button size="sm" variant="outline" onClick={resetOverdueFilter}>Limpiar</Button>
             </div>
           )}
-          <div className="vh-client-table-shell overflow-hidden rounded-2xl border border-[#d9ddd9] bg-white shadow-sm">
+          <div className="vh-client-table-shell overflow-x-auto rounded-2xl border border-[#d9ddd9] bg-white shadow-sm">
             <div className="flex items-center justify-between gap-4 border-b border-[#e4e7e2] bg-[#fffefb] px-4 py-3">
-              <p className="text-xs font-medium text-[#697386]">Todos los datos se muestran dentro del ancho disponible.</p>
+              <p className="text-xs font-medium text-[#697386]">Desliza la tabla horizontalmente para ver todas las columnas.</p>
             </div>
             <Table
               aria-label={filterType === 'overdue' ? 'Clientes con cuotas atrasadas' : 'Clientes registrados'}
-              className="vh-spaced-table vh-client-table w-full table-fixed text-[11px] xl:text-[12px]"
+              className="vh-spaced-table vh-client-table min-w-[1380px] table-fixed text-[11px] xl:text-[12px]"
             >
               <TableHeader className="bg-[#f5f4ef]">
                 <TableRow>
@@ -1750,9 +1751,9 @@ export default function ClientList({ filterType = 'all' }: ClientListProps) {
                             <span>{client.celular1 || '-'}</span>
                             <span className="text-xs text-slate-500">{client.celular2 || ''}</span>
                           </div>
-                          <Button size="icon" variant="ghost" className="h-8 w-8" aria-label="Editar celulares" onClick={() => startPhoneEdit(client)}>
+                          {user?.role !== 'readonly' && <Button size="icon" variant="ghost" className="h-8 w-8" aria-label="Editar celulares" onClick={() => startPhoneEdit(client)}>
                             <Edit className="w-4 h-4" />
-                          </Button>
+                          </Button>}
                         </div>
                       )}
                     </TableCell>
@@ -1788,7 +1789,7 @@ export default function ClientList({ filterType = 'all' }: ClientListProps) {
                             <span>{client.email1 || '-'}</span>
                             <span className="text-xs text-slate-500">{client.email2 || ''}</span>
                           </div>
-                          <Button
+                          {user?.role !== 'readonly' && <Button
                             size="icon"
                             variant="ghost"
                             className="h-8 w-8 shrink-0"
@@ -1797,7 +1798,7 @@ export default function ClientList({ filterType = 'all' }: ClientListProps) {
                             onClick={() => startEmailEdit(client)}
                           >
                             <Edit className="w-4 h-4" />
-                          </Button>
+                          </Button>}
                         </div>
                       )}
                     </TableCell>

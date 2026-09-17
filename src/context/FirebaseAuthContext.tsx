@@ -72,6 +72,7 @@ interface Cuota {
 }
 
 interface AuthContextType {
+  preview?: boolean;
   user: User | null;
   firebaseUser: FirebaseUser | null;
   clients: Client[];
@@ -109,6 +110,47 @@ export const useAuth = () => {
 };
 
 export const useOptionalAuth = () => useContext(AuthContext);
+
+// Vista local aislada: datos ficticios y ninguna conexión a Firestore.
+export const DemoAuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  const today = new Date();
+  const iso = (offsetMonths: number) => {
+    const date = new Date(today.getFullYear(), today.getMonth() + offsetMonths, 10);
+    return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), '10'].join('-');
+  };
+  const clients: Client[] = [
+    { id: 'demo-1', userId: 'demo', nombre1: 'Alicia Torres', dni1: '00000001', manzana: 'A', lote: '12', metraje: 120, montoTotal: 48000, formaPago: 'cuotas', inicial: 12000, numeroCuotas: 3, fechaRegistro: iso(-6), cuotas: [-5, -4, -3].map((month, index) => ({ numero: index + 1, vencimiento: iso(month), monto: 12000, estado: 'pagado' as const, fechaPago: iso(month) })) },
+    { id: 'demo-2', userId: 'demo', nombre1: 'Carlos Vega', dni1: '00000002', manzana: 'B', lote: '07', metraje: 150, montoTotal: 60000, formaPago: 'cuotas', inicial: 15000, numeroCuotas: 5, fechaRegistro: iso(-5), cuotas: [-3, -2, -1, 0, 1].map((month, index) => ({ numero: index + 1, vencimiento: iso(month), monto: 9000, estado: 'pendiente' as const })) },
+    { id: 'demo-3', userId: 'demo', nombre1: 'Elena Ruiz', dni1: '00000003', manzana: 'C', lote: '04', metraje: 110, montoTotal: 44000, formaPago: 'cuotas', inicial: 11000, numeroCuotas: 3, fechaRegistro: iso(-1), cuotas: [0, 1, 2].map((month, index) => ({ numero: index + 1, vencimiento: iso(month), monto: 11000, estado: 'pendiente' as const })) },
+  ];
+  const previewOnly = async (): Promise<never> => { throw new Error('La vista previa no guarda cambios.'); };
+  const formatLocalISO = (date?: Date | string) => {
+    const value = date ? new Date(date) : new Date();
+    return [value.getFullYear(), String(value.getMonth() + 1).padStart(2, '0'), String(value.getDate()).padStart(2, '0')].join('-');
+  };
+  const parseLocalDate = (value: string) => {
+    const [year, month, day] = value.slice(0, 10).split('-').map(Number);
+    return new Date(year, month - 1, day);
+  };
+  return <AuthContext.Provider value={{
+    preview: true, user: { id: 'demo', username: 'Vista previa', role: 'readonly', email: '' },
+    firebaseUser: null, clients, selectedClientId, loading: false, setSelectedClientId,
+    formatLocalISO, parseLocalDate,
+    login: async () => false, resetPassword: previewOnly,
+    logout: async () => { window.location.assign(window.location.pathname); },
+    addClient: previewOnly, updateClient: previewOnly, deleteClient: previewOnly,
+    generateCuotas: previewOnly, updateCuota: previewOnly,
+    calculateMora: (dueDate: string) => Math.max(0, Math.floor((Date.now() - parseLocalDate(dueDate).getTime()) / 86400000) - 7) * 2,
+    searchClients: (manzana, lote, dniNombre) => clients.filter(client =>
+      (!manzana || client.manzana.toLowerCase().includes(manzana.toLowerCase())) &&
+      (!lote || client.lote.toLowerCase().includes(lote.toLowerCase())) &&
+      (!dniNombre || clientMatchesTitular(client, dniNombre))),
+    markCuotaAsPaid: previewOnly, updateCuotaAmount: previewOnly,
+    updateCuotaDates: previewOnly, updateClientMigration: previewOnly,
+    updateMigratedClientsSchedule: previewOnly,
+  }}>{children}</AuthContext.Provider>;
+};
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);

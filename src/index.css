@@ -250,7 +250,7 @@
   }
 
   .vh-client-table-shell > div {
-    overflow-x: hidden;
+    overflow-x: auto;
   }
 
   .vh-spaced-table {
@@ -388,7 +388,7 @@
   }
 
   .vh-client-table {
-    min-width: 0;
+    min-width: 1380px;
     table-layout: fixed;
   }
 

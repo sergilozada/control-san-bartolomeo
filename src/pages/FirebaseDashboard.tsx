@@ -80,7 +80,7 @@ const menuItems = [
   { id: 'auditoria', label: 'Historial', description: 'Cambios de usuarios', icon: History },
 ];
 
-export default function FirebaseDashboard() {
+export default function FirebaseDashboard({ demo = false }: { demo?: boolean }) {
   const { logout, user, clients, searchClients, setSelectedClientId } = useAuth();
   const [activeTab, setActiveTab] = useState('inicio');
   const [navigationOpen, setNavigationOpen] = useState(false);
@@ -173,6 +173,7 @@ export default function FirebaseDashboard() {
 
   return (
     <div className="vh-dashboard-shell min-h-screen bg-[#f2f1ec] text-[#182033]">
+      {demo && <div className="bg-[#ffedcc] px-4 py-2 text-center text-sm font-medium text-[#69430d]">Vista previa local · datos ficticios · los cambios no se guardan</div>}
       <header className="vh-header-enter sticky top-0 z-40 border-b border-[#d9ddd9]/90 bg-[#fffefb]/95 backdrop-blur-xl">
         <div className="flex h-16 w-full items-center justify-between gap-2 px-2.5 sm:gap-4 sm:px-5 lg:px-6">
           <button
