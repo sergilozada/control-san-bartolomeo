@@ -4,7 +4,9 @@ Panel independiente para clientes, lotes, cuotas, pagos y documentos de San Bart
 
 ## Estado
 
-- La aplicación compila y muestra una pantalla de configuración hasta conectarla a un Firebase nuevo.
+- El Firebase independiente `control-san-bartolomeo` ya tiene aplicación web, correo/contraseña y Firestore en `southamerica-west1` (Santiago). Las reglas se publicaron en modo restringido.
+- Hosting está publicado en [control-san-bartolomeo.web.app](https://control-san-bartolomeo.web.app). Aún faltan los perfiles reales de usuario antes de entrar al panel.
+- Storage exige activar Blaze y un método de facturación. Hasta entonces no funcionarán las cargas de vouchers, boletas ni minutas adjuntas.
 - En **Clientes**, «No adeudo» genera un PDF para revisión cuando todas las cuotas registradas están pagadas.
 - En **Atrasados**, «Borrador de resolución» se habilita con tres cuotas vencidas e impagas. No cambia el contrato ni envía comunicaciones.
 - **Clientes** incluye acceso a minuta, cuotas, edición, libro de observaciones y eliminación (esta última solo para admin). Las observaciones nuevas conservan autor y fecha.
