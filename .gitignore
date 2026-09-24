@@ -16,6 +16,7 @@ lerna-debug.log*
 node_modules
 .firebase
 package-lock.json
+!functions/package-lock.json
 dist
 dist-ssr
 *.local

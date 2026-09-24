@@ -48,6 +48,7 @@ const demoAccounts: Record<UserRole, { username: string; email: string }> = {
   pagos: { username: 'Pagos de muestra', email: 'pagos@sanbartolomeo.example' },
   boletas: { username: 'Boletas de muestra', email: 'boletas@sanbartolomeo.example' },
   legal: { username: 'Legal de muestra', email: 'legal@sanbartolomeo.example' },
+  consulta: { username: 'Consulta de muestra', email: 'consulta@sanbartolomeo.example' },
 };
 
 interface Client {
@@ -213,35 +214,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Escuchar cambios de autenticación
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+    let unsubscribeProfile: (() => void) | undefined;
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      unsubscribeProfile?.();
+      unsubscribeProfile = undefined;
       setFirebaseUser(firebaseUser);
-      
       if (firebaseUser) {
-        try {
-          const profile = await getDoc(doc(db, 'users', firebaseUser.uid));
+        unsubscribeProfile = onSnapshot(doc(db, 'users', firebaseUser.uid), profile => {
           const data = profile.data();
           if (profile.exists() && data?.active === true &&
-              ['admin', 'pagos', 'boletas', 'legal'].includes(data.role)) {
+              ['admin', 'pagos', 'boletas', 'legal', 'consulta'].includes(data.role)) {
             setUser({
               id: firebaseUser.uid,
               username: data.name || firebaseUser.email || 'Usuario',
               email: firebaseUser.email || '',
               role: data.role,
             });
-          } else setUser(null);
-        } catch (error) {
+          } else {
+            setUser(null);
+            setClients([]);
+          }
+          setLoading(false);
+        }, error => {
           console.error('No se pudo cargar el perfil:', error);
           setUser(null);
-        }
+          setClients([]);
+          setLoading(false);
+        });
       } else {
         setUser(null);
         setClients([]);
+        setLoading(false);
       }
-      
-      setLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => { unsubscribeProfile?.(); unsubscribe(); };
   }, []);
 
   // Escuchar cambios en los clientes cuando el usuario está autenticado

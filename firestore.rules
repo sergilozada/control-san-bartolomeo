@@ -47,7 +47,19 @@ service cloud.firestore {
     match /users/{uid} {
       allow get: if admin() || (active() && request.auth.uid == uid);
       allow list: if admin();
-      allow create, update, delete: if admin();
+      allow create: if admin();
+      allow update: if admin() && request.auth.uid != uid;
+      allow delete: if false;
+    }
+    match /userEvents/{eventId} {
+      allow get, list: if admin();
+      allow create: if admin()
+        && request.resource.data.actorUid == request.auth.uid
+        && request.resource.data.actorEmail == request.auth.token.email
+        && request.resource.data.targetUid is string
+        && request.resource.data.action in ['crear', 'rol', 'suspender', 'reactivar', 'eliminar']
+        && request.resource.data.createdAt == request.time;
+      allow update, delete: if false;
     }
     match /clients/{clientId} {
       allow get, list: if active();
