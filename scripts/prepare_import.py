@@ -108,7 +108,6 @@ def prepare(path):
                 "titulares": [{"nombre": name, "dni": dni}],
                 "celular1": raw_text(values[5]),
                 "email1": raw_text(values[6]),
-                "bloque": "SAN BARTOLOMEO",
                 "manzana": block,
                 "lote": lot,
                 "metraje": area,

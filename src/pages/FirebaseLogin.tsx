@@ -13,7 +13,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { FirebaseError } from 'firebase/app';
-import { Eye, EyeOff, Leaf, LoaderCircle, LockKeyhole, MailCheck, Send, ShieldCheck } from 'lucide-react';
+import { Building2, Eye, EyeOff, LoaderCircle, LockKeyhole, MailCheck, Send, ShieldCheck } from 'lucide-react';
 
 export default function FirebaseLogin({ preview = false }: { preview?: boolean }) {
   const [email, setEmail] = useState('');
@@ -86,33 +86,33 @@ export default function FirebaseLogin({ preview = false }: { preview?: boolean }
   };
 
   return (
-    <main className="vh-login-scene san-login relative flex min-h-screen items-center justify-center overflow-hidden bg-[#251536] p-3 sm:px-6 sm:py-3">
+    <main className="vh-login-scene san-login relative flex min-h-screen items-center justify-center overflow-hidden bg-[#e7f8f6] p-3 sm:px-6 sm:py-3">
       <div className="san-login-ambient absolute inset-0" aria-hidden="true" />
 
       <div className="vh-login-shell-enter relative grid w-full max-w-6xl overflow-hidden rounded-[26px] border border-white/15 bg-[#fffefb] shadow-[0_38px_110px_rgba(0,8,24,0.46)] lg:min-h-[680px] lg:grid-cols-[1.12fr_0.88fr]">
-        <section className="vh-login-visual-enter san-login-visual relative hidden min-h-[680px] overflow-hidden bg-gradient-to-br from-[#54317f] via-[#382450] to-[#211230] p-10 text-white lg:flex lg:flex-col lg:justify-between xl:p-12">
-          <div className="pointer-events-none absolute -right-32 top-24 h-96 w-96 rounded-full border border-white/15 bg-white/5 blur-sm" aria-hidden="true" />
-          <div className="pointer-events-none absolute -bottom-28 -left-24 h-80 w-80 rounded-full bg-[#e59a3a]/15 blur-3xl" aria-hidden="true" />
+        <section className="vh-login-visual-enter san-login-visual relative hidden min-h-[680px] overflow-hidden bg-gradient-to-br from-[#e4f8f5] via-[#f2eff9] to-[#dcd6ec] p-10 text-[#312144] lg:flex lg:flex-col lg:justify-between xl:p-12">
+          <div className="pointer-events-none absolute -right-32 top-24 h-96 w-96 rounded-full border border-[#704a98]/10 bg-white/25 blur-sm" aria-hidden="true" />
+          <div className="pointer-events-none absolute -bottom-28 -left-24 h-80 w-80 rounded-full bg-[#27b8b2]/15 blur-3xl" aria-hidden="true" />
 
           <div className="relative">
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-[#1b2c1f]/35 px-3 py-1.5 text-xs font-semibold tracking-wide text-[#f7ebff] backdrop-blur-md">
-              <Leaf className="h-3.5 w-3.5" />
+            <div className="inline-flex items-center gap-2 rounded-full border border-[#afe4df] bg-white/70 px-3 py-1.5 text-xs font-semibold tracking-wide text-[#0d6268] backdrop-blur-md">
+              <Building2 className="h-3.5 w-3.5" />
               Administración inmobiliaria
             </div>
           </div>
 
           <div className="relative max-w-xl">
-            <div className="mb-6 h-px w-20 bg-[#e59a3a]" aria-hidden="true" />
+            <div className="mb-6 h-px w-20 bg-[#27b8b2]" aria-hidden="true" />
             <h1 className="brand-display text-5xl font-medium leading-[0.98] tracking-[-0.035em] xl:text-6xl">
               Control de clientes<br />y pagos
             </h1>
-            <p className="mt-5 max-w-lg text-base leading-7 text-white/80">
+            <p className="mt-5 max-w-lg text-base leading-7 text-[#5b546b]">
               Una plataforma clara y segura para administrar clientes, pagos y documentos del proyecto.
             </p>
             <div className="mt-8 flex flex-wrap gap-2">
-              <span className="rounded-full border border-white/15 bg-[#1b2c1f]/35 px-3 py-2 text-xs text-white/85 backdrop-blur-md">Cartera de clientes</span>
-              <span className="rounded-full border border-white/15 bg-[#1b2c1f]/35 px-3 py-2 text-xs text-white/85 backdrop-blur-md">Control de pagos</span>
-              <span className="rounded-full border border-white/15 bg-[#1b2c1f]/35 px-3 py-2 text-xs text-white/85 backdrop-blur-md">Documentos centralizados</span>
+              <span className="rounded-full border border-[#d2eae7] bg-white/75 px-3 py-2 text-xs font-medium text-[#463655] backdrop-blur-md">Cartera de clientes</span>
+              <span className="rounded-full border border-[#d2eae7] bg-white/75 px-3 py-2 text-xs font-medium text-[#463655] backdrop-blur-md">Control de pagos</span>
+              <span className="rounded-full border border-[#d2eae7] bg-white/75 px-3 py-2 text-xs font-medium text-[#463655] backdrop-blur-md">Documentos centralizados</span>
             </div>
           </div>
         </section>
@@ -126,7 +126,7 @@ export default function FirebaseLogin({ preview = false }: { preview?: boolean }
                 className="san-logo-reveal h-20 w-40 rounded-lg bg-white object-cover object-center sm:w-48"
               />
               <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-[#54317f]">
-                <span className="h-2 w-2 rounded-full bg-[#e59a3a]" aria-hidden="true" />
+                <span className="h-2 w-2 rounded-full bg-[#27b8b2]" aria-hidden="true" />
                 Acceso seguro
               </div>
             </div>

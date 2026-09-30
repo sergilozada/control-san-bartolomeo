@@ -48,7 +48,6 @@ interface Client extends ImportedClientSource {
   celular2?: string;
   email1?: string;
   email2?: string;
-  bloque?: string;
   manzana: string;
   lote: string;
   metraje: number;
@@ -172,7 +171,7 @@ export default function FirebaseDashboard({ demo = false }: { demo?: boolean }) 
       value: pendingPayments.length,
       helper: 'Requieren seguimiento',
       icon: Clock,
-      iconClass: 'bg-[#fff7e3] text-[#8a6215]',
+      iconClass: 'bg-[#e7f8f6] text-[#0c6268]',
       action: () => setActiveTab('pendientes'),
     },
     {
@@ -187,10 +186,10 @@ export default function FirebaseDashboard({ demo = false }: { demo?: boolean }) 
 
   return (
     <div className="vh-dashboard-shell san-design min-h-screen bg-[#f8f5fb] text-[#312144]">
-      {demo && <div className="sb-demo-banner flex flex-wrap items-center justify-center gap-x-4 gap-y-2 bg-[#ffedcc] px-4 py-2 text-center text-sm font-medium text-[#69430d]">
+      {demo && <div className="sb-demo-banner flex flex-wrap items-center justify-center gap-x-4 gap-y-2 bg-[#e7f8f6] px-4 py-2 text-center text-sm font-medium text-[#0c6268]">
         <span>Vista previa local · datos ficticios · los cambios no se guardan</span>
         <label className="flex items-center gap-2">Usuario de muestra
-          <select aria-label="Usuario de muestra" value={user?.role || 'admin'} onChange={event => { setPreviewRole?.(event.target.value as UserRole); setActiveTab('inicio'); }} className="rounded-xl border border-[#d2b97e] bg-white px-2 py-1 text-[#312144]">
+          <select aria-label="Usuario de muestra" value={user?.role || 'admin'} onChange={event => { setPreviewRole?.(event.target.value as UserRole); setActiveTab('inicio'); }} className="rounded-xl border border-[#a8e3de] bg-white px-2 py-1 text-[#312144]">
             {(Object.keys(roleLabel) as UserRole[]).map(role => <option key={role} value={role}>{roleLabel[role]}</option>)}
           </select>
         </label>
@@ -203,22 +202,16 @@ export default function FirebaseDashboard({ demo = false }: { demo?: boolean }) 
             aria-label="Ir a Vista general"
             aria-current={activeTab === 'inicio' ? 'page' : undefined}
             title="Ir a Vista general"
-            className="group flex min-h-12 min-w-0 items-center gap-2 rounded-xl px-1.5 text-left transition-[background-color,transform] duration-200 hover:bg-[#f3eaf9]/70 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6b4492] focus-visible:ring-offset-2 motion-reduce:transform-none motion-reduce:transition-none sm:gap-3 sm:px-2"
+            className="group flex min-h-12 min-w-0 items-center gap-2 rounded-xl px-1.5 text-left transition-[background-color,transform] duration-200 hover:bg-white/10 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#baf2ed] focus-visible:ring-offset-2 motion-reduce:transform-none motion-reduce:transition-none sm:gap-3"
           >
-            <img
-              src="/brand/san-bartolomeo-logo.jpeg"
-              alt="San Bartolomeo Inmobiliaria"
-              className="san-logo-reveal h-12 w-20 shrink-0 rounded-lg bg-white object-cover object-center shadow-sm transition-transform duration-200 group-hover:scale-[1.025] motion-reduce:transform-none motion-reduce:transition-none sm:w-24"
-            />
-            <div className="min-w-0">
-              <p className="hidden truncate text-sm font-semibold tracking-tight text-[#312144] sm:block sm:text-base">
-                San Bartolomeo Inmobiliaria
-              </p>
-            </div>
+            <span className="san-header-logo san-logo-reveal block h-10 w-20 shrink-0 overflow-hidden rounded-lg bg-white shadow-sm sm:h-11 sm:w-28">
+              <img src="/brand/san-bartolomeo-logo.jpeg" alt="Logo de San Bartolomeo" className="h-full w-full scale-[1.28] object-cover object-center" />
+            </span>
+            <span className="min-w-0 truncate text-sm font-bold tracking-tight text-white sm:text-base">San Bartolomeo</span>
           </button>
 
           <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-3">
-            <span className="inline-flex min-h-9 items-center gap-2 rounded-full border border-[#c7ddd9] bg-[#f3f7ed] px-2.5 text-xs font-semibold text-[#312144] sm:px-3 sm:text-sm">
+            <span className="hidden min-h-9 items-center gap-2 rounded-full border border-[#c7ddd9] bg-[#f3f7ed] px-2.5 text-xs font-semibold text-[#312144] sm:inline-flex sm:px-3 sm:text-sm">
               <span className="h-2 w-2 rounded-full bg-[#54317f]" aria-hidden="true" />
               {user?.role ? roleLabel[user.role] : 'Usuario'}
             </span>
@@ -230,13 +223,13 @@ export default function FirebaseDashboard({ demo = false }: { demo?: boolean }) 
               className="min-h-9 border-[#d9ddd9] bg-white px-2.5 text-[#312144] transition-[border-color,background-color,color,transform,box-shadow] duration-200 hover:border-[#54317f] hover:bg-[#f3f7ed] hover:text-[#54317f] hover:shadow-sm active:scale-[0.98] motion-reduce:transform-none motion-reduce:transition-none sm:px-3"
             >
               <LogOut className="h-4 w-4" />
-              <span>Cerrar sesión</span>
+              <span className="hidden sm:inline">Cerrar sesión</span>
             </Button>
           </div>
         </div>
       </header>
 
-      {!isStorageEnabled && <div role="status" className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-xs text-amber-900 sm:text-sm">Los adjuntos de vouchers, boletas y minutas se habilitarán cuando Storage esté activo. Los borradores y registros siguen disponibles.</div>}
+      {!isStorageEnabled && <div role="status" className="border-b border-[#a8e3de] bg-[#e7f8f6] px-4 py-2 text-center text-xs text-[#0c6268] sm:text-sm">Los adjuntos de vouchers, boletas y minutas se habilitarán cuando Storage esté activo. Los borradores y registros siguen disponibles.</div>}
 
       <Tabs
         value={activeTab}
@@ -312,22 +305,22 @@ export default function FirebaseDashboard({ demo = false }: { demo?: boolean }) 
         </aside>
 
         <main className="min-w-0 px-3 py-4 sm:px-4 lg:px-0 lg:py-5">
-          {clients.some(needsFinancialReview) && <p role="status" className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-            {clients.filter(needsFinancialReview).length} clientes tienen pagos por revisar. Sus importes están excluidos de los indicadores de pagos, atrasos e ingresos hasta completar el cronograma en Clientes → Completar.
+          {clients.some(needsFinancialReview) && <p role="status" className="mb-4 rounded-xl border border-[#b5e7e2] bg-[#e9f8f6] px-4 py-3 text-sm text-[#0d5f65]">
+            <strong>Revisión pendiente:</strong> {clients.filter(needsFinancialReview).length} clientes importados necesitan completar su cronograma. No se han supuesto pagos ni vencimientos; complétalos en Clientes → Completar.
           </p>}
           <TabsContent value="inicio" className="mt-0 space-y-4">
-            <section className="vh-hero-enter relative isolate min-h-[230px] overflow-hidden rounded-3xl bg-[#312144] px-5 py-5 text-white shadow-xl shadow-[#312144]/15 sm:px-6 sm:py-6">
-              <div className="pointer-events-none absolute -right-10 -top-20 -z-10 h-80 w-80 rounded-full border border-white/15 bg-white/5" aria-hidden="true" />
-              <div className="pointer-events-none absolute -bottom-32 right-1/3 -z-10 h-64 w-64 rounded-full bg-[#e59a3a]/15 blur-3xl" aria-hidden="true" />
-              <div className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-[#714899] via-[#e59a3a] to-transparent" aria-hidden="true" />
+            <section className="vh-hero-enter relative isolate min-h-[230px] overflow-hidden rounded-[22px] bg-white px-5 py-5 text-[#312144] shadow-lg shadow-[#312144]/10 sm:px-7 sm:py-7">
+              <div className="pointer-events-none absolute -right-10 -top-20 -z-10 h-80 w-80 rounded-full border border-[#714899]/10 bg-white/10" aria-hidden="true" />
+              <div className="pointer-events-none absolute -bottom-32 right-1/3 -z-10 h-64 w-64 rounded-full bg-[#27b8b2]/15 blur-3xl" aria-hidden="true" />
+              <div className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-[#714899] via-[#27b8b2] to-transparent" aria-hidden="true" />
               <div className="flex min-h-[174px] flex-col justify-between gap-4 sm:flex-row sm:items-end">
                 <div className="max-w-2xl">
-                  <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/15 bg-[#1b2c1f]/30 px-3 py-1 text-xs font-medium text-[#f7ebff] backdrop-blur-md">
-                    <span className="h-2 w-2 rounded-full bg-[#e8c477]" aria-hidden="true" />
+                  <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#b5e7e2] bg-[#e7f8f6] px-3 py-1 text-xs font-semibold text-[#0d5f65]">
+                    <span className="h-2 w-2 rounded-full bg-[#4fc8bf]" aria-hidden="true" />
                     Panel administrativo
                   </div>
                   <h1 className="brand-display text-3xl font-medium tracking-tight sm:text-4xl">San Bartolomeo Inmobiliaria</h1>
-                  <p className="mt-3 max-w-xl text-sm leading-6 text-white/80 sm:text-base">
+                  <p className="mt-3 max-w-xl text-sm leading-6 text-[#5f6878] sm:text-base">
                     Gestiona la cartera del proyecto, revisa compromisos de pago y centraliza los documentos de cada propietario.
                   </p>
                 </div>
@@ -438,7 +431,7 @@ export default function FirebaseDashboard({ demo = false }: { demo?: boolean }) 
                               <TableRow key={client.id}>
                                 <TableCell className="max-w-72 font-medium text-[#182033]">{getClientDisplayName(client)}</TableCell>
                                 <TableCell className="max-w-52 text-[#5f6878]">{getClientDisplayDnis(client)}</TableCell>
-                                <TableCell>{client.bloque ? `Bloque ${client.bloque} · ` : ''}Mz. {client.manzana} · Lote {client.lote}</TableCell>
+                                <TableCell>Mz. {client.manzana} · Lote {client.lote}</TableCell>
                                 <TableCell>S/ {client.montoTotal.toFixed(2)}</TableCell>
                                 <TableCell><Badge variant="outline">{getClientStatus(client)}</Badge></TableCell>
                                 <TableCell>

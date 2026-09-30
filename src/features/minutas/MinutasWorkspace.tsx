@@ -198,7 +198,7 @@ export default function MinutasWorkspace({ initialClientId }: { initialClientId?
       <div
         className="absolute inset-0 -z-20"
         style={{
-          backgroundImage: 'radial-gradient(circle at 88% 12%, rgba(203,157,27,.32), transparent 23rem), radial-gradient(circle at 5% 95%, rgba(101,132,64,.32), transparent 25rem), linear-gradient(145deg, #312144 0%, #54317f 60%, #76551f 130%)',
+          backgroundImage: 'radial-gradient(circle at 88% 12%, rgba(39,184,178,.24), transparent 23rem), radial-gradient(circle at 5% 95%, rgba(138,113,189,.28), transparent 25rem), linear-gradient(145deg, #183d56 0%, #3e396d 55%, #54317f 120%)',
         }}
         aria-hidden="true"
       />
@@ -210,7 +210,7 @@ export default function MinutasWorkspace({ initialClientId }: { initialClientId?
       </div>
 
       <div className="max-w-2xl py-10">
-        <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#e59a3a]">Gestión legal inmobiliaria</p>
+        <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#27b8b2]">Gestión legal inmobiliaria</p>
         <h1 className="brand-display mt-5 max-w-xl text-5xl font-medium leading-[1.05] tracking-tight 2xl:text-6xl">Documentos listos para revisión.</h1>
         <p className="mt-5 max-w-xl text-base leading-7 text-white/80 2xl:text-lg">
           Centraliza compradores, pagos iniciales y cronogramas para preparar cada borrador de minuta con mayor claridad.
@@ -223,7 +223,7 @@ export default function MinutasWorkspace({ initialClientId }: { initialClientId?
           ['02', 'Validación guiada'],
           ['03', 'Historial seguro'],
         ].map(([number, label]) => <div key={number} className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur-sm">
-          <span className="block text-xs font-bold tracking-[0.16em] text-[#e59a3a]">{number}</span>
+          <span className="block text-xs font-bold tracking-[0.16em] text-[#27b8b2]">{number}</span>
           <span className="mt-2 block text-sm font-semibold text-white/90">{label}</span>
         </div>)}
       </div>
@@ -235,10 +235,10 @@ export default function MinutasWorkspace({ initialClientId }: { initialClientId?
           <img src="/brand/san-bartolomeo-logo.jpeg" alt="San Bartolomeo Inmobiliaria" className="h-28 w-full object-contain object-center sm:h-32" />
         </div>
 
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#eef1e6] text-[#54317f]">
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#e7f8f6] text-[#0d6268]">
           <LockKeyhole className="h-6 w-6" aria-hidden="true" />
         </div>
-        <p className="mt-7 text-xs font-bold uppercase tracking-[0.2em] text-[#6b7f35]">Acceso interno</p>
+        <p className="mt-7 text-xs font-bold uppercase tracking-[0.2em] text-[#0d6268]">Acceso interno</p>
         <h2 id="minute-login-title" className="brand-display mt-3 text-4xl font-medium leading-tight text-[#312144]">Ingresar a Minutas</h2>
         <p className="mt-3 text-base leading-6 text-[#697386]">Ingresa la contraseña de Minutas para abrir esta área.</p>
 
@@ -279,10 +279,10 @@ export default function MinutasWorkspace({ initialClientId }: { initialClientId?
 
   if (workspaceView === 'home') return <div className="space-y-5">{navigation}
     <section className="relative overflow-hidden rounded-3xl bg-[#54317f] p-8 text-white shadow-lg sm:p-12" style={{ backgroundImage: 'linear-gradient(90deg, #312144f5, #5b3b15d9)', backgroundSize: 'cover', backgroundPosition: 'center' }}>
-      <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#e59a3a]">San Bartolomeo Inmobiliaria</p>
+      <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#27b8b2]">San Bartolomeo Inmobiliaria</p>
       <h2 className="brand-display mt-4 max-w-xl text-4xl">Crea una minuta desde cero.</h2>
       <p className="mt-3 max-w-xl text-sm leading-6 text-white/80">Registra compradores, verifica importes y genera un Word de trabajo para revisión legal.</p>
-      <Button className="mt-6 bg-[#e59a3a] text-[#172012] hover:bg-white" onClick={() => { setEditingId(null); setDraft(blankMinute()); setWorkspaceView('records'); }}><FilePlus2 className="h-4 w-4" /> Crear nueva minuta</Button>
+      <Button className="mt-6 bg-[#27b8b2] text-[#123c48] hover:bg-[#8cddd6]" onClick={() => { setEditingId(null); setDraft(blankMinute()); setWorkspaceView('records'); }}><FilePlus2 className="h-4 w-4" /> Crear nueva minuta</Button>
     </section>
     <div className="grid gap-4 sm:grid-cols-2"><Card><CardHeader><CardTitle>{records.length} minutas guardadas</CardTitle></CardHeader><CardContent><Button variant="outline" onClick={() => setWorkspaceView('records')}>Ver expedientes</Button></CardContent></Card><Card><CardHeader><CardTitle>Documento para revisión</CardTitle></CardHeader><CardContent className="text-sm text-[#697386]">Cada Word requiere comprobación de datos y una plantilla contractual aprobada.</CardContent></Card></div>
   </div>;

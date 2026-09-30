@@ -41,7 +41,7 @@ export default function ImportedClientReview({client, canEdit, onSave}: {
     } catch { toast.error('No se guardó el cronograma. Inténtalo de nuevo.'); }
     finally { setSaving(false); }
   };
-  return <section className="space-y-5 rounded-xl border border-amber-200 bg-amber-50/40 p-4 sm:p-6">
+  return <section className="space-y-5 rounded-xl border border-[#b5e7e2] bg-[#f0fbfa] p-4 sm:p-6">
     <div><h3 className="font-semibold text-[#312144]">Completar datos y revisar pagos</h3>
       <p className="mt-1 text-sm text-slate-600">Registro importado de la fila {review.sourceRow}. Confirma los importes y las fechas del contrato antes de habilitar el cronograma. Después podrás registrar manualmente cada pago, boleta y voucher.</p>
     </div>
@@ -61,7 +61,7 @@ export default function ImportedClientReview({client, canEdit, onSave}: {
         </>}
         <div><Label htmlFor="review-first-date">{method==='cuotas' ? 'Primer vencimiento *' : 'Fecha del pago pactado *'}</Label><Input id="review-first-date" type="date" value={dueDate} onChange={e=>setFirstDate(e.target.value)} />{method==='cuotas' && <p className="mt-1 text-xs text-slate-600">Corresponde a «Inicio de cuota» del Excel. El vencimiento se fija al último día de ese mes; si falta en el Excel, complétalo aquí.</p>}</div>
       </fieldset>
-      {error ? <p className="text-sm text-amber-900">{error}</p> : <div className="rounded-lg border bg-white p-3 text-sm">
+      {error ? <p className="text-sm text-rose-700">{error}</p> : <div className="rounded-lg border bg-white p-3 text-sm">
         <p>{method==='cuotas' ? `${count} cuotas mensuales. Última cuota: S/ ${cuotas.at(-1)!.monto.toFixed(2)} el ${cuotas.at(-1)!.vencimiento}. La última cuota ajusta el importe para completar el precio.` : `Un pago de S/ ${Number(total).toFixed(2)} el ${firstDate}.`}</p>
         <p className="mt-2">Al guardar, los pagos quedarán pendientes hasta que los registres manualmente. Los vencimientos anteriores a hoy aparecerán en atrasados mientras no se registre su pago.</p>
       </div>}

@@ -30,7 +30,6 @@ interface ClientRegistrationDialogProps {
 interface FormData {
   celular: string;
   email: string;
-  bloque: string;
   manzana: string;
   lote: string;
   metraje: string;
@@ -51,7 +50,6 @@ export default function ClientRegistrationDialog({ onClose, onSave }: ClientRegi
   const [formData, setFormData] = useState<FormData>({
     celular: '',
     email: '',
-    bloque: '',
     manzana: '',
     lote: '',
     metraje: '',
@@ -85,7 +83,7 @@ export default function ClientRegistrationDialog({ onClose, onSave }: ClientRegi
       return;
     }
 
-    if (!formData.bloque.trim() || !formData.manzana.trim() || !formData.lote.trim() || !formData.montoTotal || !formData.formaPago) {
+    if (!formData.manzana.trim() || !formData.lote.trim() || !formData.montoTotal || !formData.formaPago) {
       toast.error('Completa los datos obligatorios de la propiedad y el pago');
       return;
     }
@@ -111,7 +109,6 @@ export default function ClientRegistrationDialog({ onClose, onSave }: ClientRegi
       dni2: selectedTitulares[1]?.dni || undefined,
       celular1: formData.celular.trim() || undefined,
       email1: formData.email.trim() || undefined,
-      bloque: formData.bloque.trim(),
       manzana: formData.manzana.trim(),
       lote: formData.lote.trim(),
       metraje: Number.parseFloat(formData.metraje) || 0,
@@ -128,7 +125,7 @@ export default function ClientRegistrationDialog({ onClose, onSave }: ClientRegi
         toast.success(`${numeroTitulares === 1 ? 'Cliente registrado' : `${numeroTitulares} titulares registrados`} exitosamente`);
         onClose();
       } else {
-        toast.error('Ya existe un registro con ese bloque, manzana y lote');
+        toast.error('Ya existe un registro con esa manzana y lote');
       }
     } catch (error) {
       console.error('Error al registrar cliente:', error);
@@ -261,18 +258,6 @@ export default function ClientRegistrationDialog({ onClose, onSave }: ClientRegi
                     <p className="text-sm text-[#697386]">Datos únicos del lote para este registro.</p>
                   </div>
                 </div>
-                <div className="max-w-xs space-y-2">
-                  <Label htmlFor="bloque">Bloque *</Label>
-                  <Input
-                    id="bloque"
-                    value={formData.bloque}
-                    onChange={event => handleInputChange('bloque', event.target.value.replace(/[^\p{L}\p{N}]/gu, ''))}
-                    placeholder="Ej. A1"
-                    autoComplete="off"
-                    className="min-h-11 focus-visible:ring-[#6b4492]"
-                    required
-                  />
-                </div>
                 <div className="grid gap-4 sm:grid-cols-3">
                   <div className="space-y-2">
                     <Label htmlFor="manzana">Manzana *</Label>
@@ -291,7 +276,7 @@ export default function ClientRegistrationDialog({ onClose, onSave }: ClientRegi
 
               <section aria-labelledby="pago-heading" className="space-y-4 border-t border-[#e4e7e2] pt-6">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#fff7e3] text-[#8a6215]">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#e7f8f6] text-[#0c6268]">
                     <WalletCards className="h-4 w-4" aria-hidden="true" />
                   </div>
                   <div>

@@ -55,7 +55,6 @@ interface Client extends ImportedClientSource {
   email2?: string;
   observaciones?: string;
   observationEntries?: ObservationEntry[];
-  bloque?: string;
   manzana: string;
   lote: string;
   metraje: number;
@@ -857,7 +856,6 @@ export default function ClientList({ filterType = 'all', onCreateMinute }: Clien
     doc.text(`Precio total: S/ ${client.montoTotal.toFixed(2)}`, leftX, yInfo); yInfo += infoLineHeight;
     doc.text(`Moneda: SOLES`, leftX, yInfo); yInfo += infoLineHeight;
     doc.text(`Proyecto: ${scheduleConfig.projectName}`, leftX, yInfo); yInfo += infoLineHeight;
-    if (client.bloque) { doc.text(`Bloque: ${client.bloque}`, leftX, yInfo); yInfo += infoLineHeight; }
     doc.text(`Manzana: ${client.manzana}`, leftX, yInfo); yInfo += infoLineHeight;
     doc.text(`Lote: ${client.lote}`, leftX, yInfo); yInfo += infoLineHeight;
     doc.text(`Metraje: ${client.metraje} m2`, leftX, yInfo); yInfo += infoLineHeight;
@@ -1088,7 +1086,6 @@ export default function ClientList({ filterType = 'all', onCreateMinute }: Clien
         infoHtml += `<tr><td><strong>Precio total</strong></td><td>S/ ${client.montoTotal.toFixed(2)}</td></tr>`;
         infoHtml += '<tr><td><strong>Moneda</strong></td><td>SOLES</td></tr>';
         infoHtml += `<tr><td><strong>Proyecto</strong></td><td>${scheduleConfig.projectName}</td></tr>`;
-        if (client.bloque) infoHtml += `<tr><td><strong>Bloque</strong></td><td>${client.bloque}</td></tr>`;
         infoHtml += `<tr><td><strong>Manzana</strong></td><td>${client.manzana}</td></tr>`;
         infoHtml += `<tr><td><strong>Lote</strong></td><td>${client.lote}</td></tr>`;
         infoHtml += `<tr><td><strong>Metraje</strong></td><td>${client.metraje} m2</td></tr>`;
@@ -1478,13 +1475,13 @@ export default function ClientList({ filterType = 'all', onCreateMinute }: Clien
 
   return (
     <div className="w-full space-y-6">
-      <Card className="overflow-hidden border-[#d9ddd9] bg-[#fffefb] shadow-sm">
+      <Card className="san-clients-card overflow-hidden border-[#d9ddd9] bg-[#fffefb] shadow-sm">
         <CardHeader className="flex flex-col gap-4 border-b border-[#e9ebe7] bg-[#fffefb] px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <div>
             <p className="mb-1 text-xs font-semibold uppercase tracking-[0.14em] text-[#54317f]">San Bartolomeo Inmobiliaria</p>
             <CardTitle className="brand-display text-2xl text-[#312144]">{filteredClients.length} cliente{filteredClients.length === 1 ? '' : 's'}</CardTitle>
             <p className="mt-1 text-sm text-[#697386]">Consulta pagos, documentos y datos de cada registro.</p>
-            {filteredClients.some(needsFinancialReview) && <p className="mt-2 text-sm text-amber-900">{filteredClients.filter(needsFinancialReview).length} registros importados por revisar. Usa «Completar» para confirmar el cronograma y registrar sus pagos manualmente.</p>}
+            {filteredClients.some(needsFinancialReview) && <p className="mt-2 text-sm font-medium text-[#0d6268]">{filteredClients.filter(needsFinancialReview).length} registros importados por revisar. Usa «Completar» para confirmar el cronograma y registrar sus pagos manualmente.</p>}
           </div>
           <div className="flex flex-wrap justify-end gap-2">
             <Button onClick={exportClientsToPDF} disabled={filteredClients.length === 0}>
@@ -1540,14 +1537,13 @@ export default function ClientList({ filterType = 'all', onCreateMinute }: Clien
               aria-label={filterType === 'overdue' ? 'Clientes con cuotas atrasadas' : 'Clientes registrados'}
               className="vh-spaced-table vh-client-table min-w-[1380px] table-fixed text-[11px] xl:text-[12px]"
             >
-              <TableHeader className="bg-[#f5f4ef]">
+              <TableHeader className="bg-[#f1eff9]">
                 <TableRow>
                   <TableHead className="w-[4%] px-1.5 text-center">ID</TableHead>
                   <TableHead className="w-[13%] px-1.5 text-center">Nombres</TableHead>
                   <TableHead className="w-[8%] px-1.5 text-center">DNIs</TableHead>
                   <TableHead className="w-[10%] px-1.5 text-center">Celulares</TableHead>
                   <TableHead className="w-[12%] px-1.5 text-center">Emails</TableHead>
-                  <TableHead className="px-1.5 text-center">Bloque</TableHead>
                   <TableHead className="px-1.5 text-center">Manzana</TableHead>
                   <TableHead className="px-1.5 text-center">Lote</TableHead>
                   <TableHead className="px-1.5 text-center">Metraje</TableHead>
@@ -1567,10 +1563,10 @@ export default function ClientList({ filterType = 'all', onCreateMinute }: Clien
                 {filteredClients.map((client, index) => (
                   <TableRow
                     key={client.id}
-                    className="group border-[#e4e7e2] odd:bg-white even:bg-[#fbfcfa] hover:bg-[#f3f7ed]"
+                    className="group border-[#e4e7e2] odd:bg-white even:bg-[#fbfcfa]"
                   >
-                    <TableCell className="bg-inherit px-1.5 py-3 text-center font-semibold text-[#54317f] group-hover:bg-[#f3f7ed]">{index + 1}</TableCell>
-                    <TableCell className="break-words bg-inherit px-1.5 py-3 group-hover:bg-[#f3f7ed]">
+                    <TableCell className="bg-inherit px-1.5 py-3 text-center font-semibold text-[#54317f]">{index + 1}</TableCell>
+                    <TableCell className="break-words bg-inherit px-1.5 py-3">
                       <div className="mx-auto w-fit max-w-full space-y-1.5 text-left">
                         {getClientTitulares(client).map((titular, titularIndex) => (
                           <div key={`${client.id}-nombre-${titularIndex}`} className="flex items-start gap-2">
@@ -1631,7 +1627,6 @@ export default function ClientList({ filterType = 'all', onCreateMinute }: Clien
                         <span className="text-xs text-slate-500">{client.email2 || ''}</span>
                       </div>
                     </TableCell>
-                    <TableCell className="px-1.5 py-3 text-center">{client.bloque || '—'}</TableCell>
                     <TableCell className="px-1.5 py-3 text-center">{client.manzana}</TableCell>
                     <TableCell className="px-1.5 py-3 text-center">{client.lote}</TableCell>
                     <TableCell className="px-1.5 py-3 text-center">{client.metraje} m²</TableCell>
@@ -1662,7 +1657,7 @@ export default function ClientList({ filterType = 'all', onCreateMinute }: Clien
                         <Badge variant="outline">{getClientStatus(client)}</Badge>
                       </TableCell>
                     )}
-                    <TableCell className="bg-inherit px-1.5 py-3 group-hover:bg-[#f3f7ed]">
+                    <TableCell className="bg-inherit px-1.5 py-3">
                       <div className="flex flex-wrap items-center justify-center gap-1.5">
                         {showMinuteAction && canLegal && (
                           <MinutaUploadButton
@@ -1701,7 +1696,7 @@ export default function ClientList({ filterType = 'all', onCreateMinute }: Clien
                             title="Libro de observaciones"
                             onClick={() => openObservations(client)}
                             className={client.observationEntries?.length || client.observaciones?.trim()
-                              ? 'border-[#e59a3a]/70 bg-[#fff8e8] text-[#805f1c] hover:bg-[#fff3d5] hover:text-[#805f1c]'
+                              ? 'border-[#27b8b2]/70 bg-[#e8f8f6] text-[#0e6369] hover:bg-[#d6f3f0] hover:text-[#0e6369]'
                               : 'text-[#312144]'}
                           >
                             <BookOpen className="w-4 h-4" />
@@ -1831,7 +1826,7 @@ export default function ClientList({ filterType = 'all', onCreateMinute }: Clien
               const client = clients.find(c => c.id === selectedClient);
               if (!client || !client.cuotas) return null;
               if (needsFinancialReview(client)) return <div className="space-y-4">
-                <p className="font-medium">{getClientDisplayName(client)} · Bloque {client.bloque} / Mz. {client.manzana} / Lt. {client.lote}</p>
+                <p className="font-medium">{getClientDisplayName(client)} · Mz. {client.manzana} / Lt. {client.lote}</p>
                 <ImportedClientReview key={client.id} client={client} canEdit={canEditClients} onSave={data => updateClient(client.id, data)} />
               </div>;
               return (
@@ -1847,10 +1842,6 @@ export default function ClientList({ filterType = 'all', onCreateMinute }: Clien
                         <dt className="shrink-0 font-semibold text-slate-700">DNIs:</dt>
                         <dd className="min-w-0 text-slate-700">{getClientDisplayDnis(client)}</dd>
                         {canEditClients && <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0" aria-label="Editar DNI del cliente" onClick={() => startDetailEdit(client,'dni')}><Edit className="h-3.5 w-3.5" /></Button>}
-                      </div>
-                      <div className="flex min-w-0 items-start justify-center gap-1.5 text-center sm:justify-start sm:text-left">
-                        <dt className="shrink-0 font-semibold text-slate-700">Bloque:</dt>
-                        <dd className="text-slate-700">{client.bloque || '—'}</dd>
                       </div>
                       <div className="flex min-w-0 items-start justify-center gap-1.5 text-center sm:justify-start sm:text-left">
                         <dt className="shrink-0 font-semibold text-slate-700">Manzana:</dt>

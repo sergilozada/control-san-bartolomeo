@@ -553,7 +553,7 @@ export default function StatsView({ showReport = false }: StatsViewProps) {
   const report = getMonthReport(selectedMonth, selectedYear);
   const paymentStatusData = [
     { name: 'Pagadas', value: stats.cuotasPagadas, color: '#6b4492' },
-    { name: 'Pendientes', value: stats.cuotasPendientes, color: '#e59a3a' },
+    { name: 'Pendientes', value: stats.cuotasPendientes, color: '#6c70ba' },
   ];
   const monthlyTrendData = Array.from({ length: 12 }, (_, index) => {
     const period = new Date(selectedYear, selectedMonth - 11 + index, 1);

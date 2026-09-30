@@ -492,98 +492,119 @@
   }
 }
 
-/* Identidad visual de San Bartolomeo: violeta, papel claro y acentos cálidos. */
+/* Identidad visual de San Bartolomeo: violeta y turquesa, con contenido legible. */
 .san-design,
 .san-login {
   --san-ink: #312144;
-  --san-pine: #382450;
-  --san-leaf: #714899;
-  --san-gold: #e59a3a;
-  --san-paper: #fffdfa;
-  --san-line: #e9e0ee;
+  --san-violet: #58377e;
+  --san-accent: #27b8b2;
+  --san-paper: #f1ebf8;
+  --san-line: #cbbbdc;
+}
+
+.san-design .brand-display,
+.san-login .brand-display {
+  font-family: "Aptos Display", "Segoe UI", Inter, ui-sans-serif, sans-serif;
+  font-weight: 700;
+  letter-spacing: -.035em;
 }
 
 .san-design.vh-dashboard-shell {
-  background-color: #f8f5fb !important;
+  background-color: #e4ddec !important;
   background-image:
-    radial-gradient(circle at 92% 4%, rgb(229 154 58 / 12%), transparent 25rem),
-    radial-gradient(circle at 4% 86%, rgb(113 72 153 / 10%), transparent 28rem) !important;
+    radial-gradient(circle at 88% 2%, rgb(39 184 178 / 22%), transparent 30rem),
+    radial-gradient(circle at 5% 86%, rgb(113 72 153 / 14%), transparent 32rem),
+    linear-gradient(135deg, #e2d8ed, #e4eeef) !important;
 }
 
 .san-design .vh-header-enter {
-  border-color: #382450 !important;
-  background: rgb(49 33 68 / 96%) !important;
-  box-shadow: 0 8px 24px rgb(49 33 68 / 13%);
+  border-color: #775595 !important;
+  background: linear-gradient(105deg, #4c2b72 0%, #643f8b 54%, #126b73 100%) !important;
+  box-shadow: 0 5px 24px rgb(49 33 68 / 20%);
 }
 
-.san-design .vh-header-enter p,
-.san-design .vh-header-enter button[aria-label="Cerrar sesión"] {
-  color: #fff !important;
+.san-design .vh-header-enter button[aria-label="Ir a Vista general"]:hover {
+  background: rgb(255 255 255 / 11%) !important;
 }
 
 .san-design .vh-header-enter button[aria-label="Cerrar sesión"] {
-  border-color: #8e75a8 !important;
-  background: #54317f !important;
+  color: #ffffff !important;
+}
+
+.san-design .san-header-logo {
+  border: 1px solid rgb(255 255 255 / 65%);
+  box-shadow: 0 5px 14px rgb(14 72 78 / 25%);
+}
+
+.san-design .vh-header-enter button[aria-label="Cerrar sesión"] {
+  border-color: rgb(255 255 255 / 45%) !important;
+  background: rgb(255 255 255 / 11%) !important;
 }
 
 .san-design .vh-header-enter button[aria-label="Cerrar sesión"]:hover {
-  border-color: #e5c888 !important;
-  background: #714899 !important;
+  border-color: #baf2ed !important;
+  background: #d9f5f1 !important;
+  color: #0c6268 !important;
 }
 
 .san-design .vh-header-enter span.rounded-full {
-  border-color: #8e75a8 !important;
-  background: #54317f !important;
-  color: #fff !important;
+  border-color: #baf2ed !important;
+  background: #e0f8f5 !important;
+  color: #0c6268 !important;
 }
 
 .san-design .vh-sidebar-enter {
-  border-color: #4d3465 !important;
-  background: linear-gradient(180deg, #382450 0%, #251536 100%) !important;
-  box-shadow: 8px 0 28px rgb(49 33 68 / 12%);
+  border-color: #c2afda !important;
+  background: linear-gradient(180deg, #e8dcf3 0%, #dfd7ee 55%, #d4eae9 100%) !important;
+  box-shadow: 8px 0 28px rgb(49 33 68 / 10%);
 }
 
 .san-design .vh-menu-button {
-  border-color: #8e75a8 !important;
-  background: #54317f !important;
-  color: #fff !important;
+  border-color: #c3abd9 !important;
+  background: #f5eefb !important;
+  color: #312144 !important;
 }
 
 .san-design .vh-menu-button:hover {
-  border-color: #e5c888 !important;
-  background: #714899 !important;
+  border-color: #8ad7d1 !important;
+  background: #e7f8f6 !important;
 }
 
 .san-design .vh-menu-button span,
 .san-design .vh-menu-button .vh-menu-bar {
-  color: #fff !important;
+  color: #312144 !important;
 }
 
 .san-design .vh-menu-button .vh-menu-bar {
-  background: #e5c888 !important;
+  background: #0e7278 !important;
 }
 
 .san-design #dashboard-navigation [role="tab"] {
-  color: #f6effb !important;
+  color: #463655 !important;
 }
 
 .san-design #dashboard-navigation [role="tab"] span {
-  color: #dccbe9 !important;
+  color: #6b6177 !important;
 }
 
 .san-design #dashboard-navigation [role="tab"]:hover {
-  background: #624080 !important;
+  background: #d6c6e7 !important;
 }
 
 .san-design #dashboard-navigation [role="tab"][data-state="active"] {
-  border-color: #e8cc90 !important;
-  background: #e9ad65 !important;
-  color: #312144 !important;
+  border-color: #09666c !important;
+  background: #0c7377 !important;
+  color: #ffffff !important;
   font-weight: 700;
+  box-shadow: 0 6px 14px rgb(12 98 104 / 18%);
 }
 
 .san-design #dashboard-navigation [role="tab"][data-state="active"] span {
-  color: #312144 !important;
+  color: #ffffff !important;
+}
+
+.san-design #dashboard-navigation [role="tab"][data-state="active"] .san-nav-description {
+  color: #d7f6f1 !important;
 }
 
 .san-design .san-nav-item {
@@ -599,7 +620,7 @@
   bottom: 24%;
   width: 3px;
   border-radius: 3px;
-  background: #fff7e6;
+  background: #a8f3ec;
   opacity: 0;
   transform: scaleY(.2);
   transition: transform 240ms cubic-bezier(.22, 1, .36, 1), opacity 180ms ease;
@@ -611,9 +632,9 @@
 }
 
 .san-design .vh-hero-enter {
-  border: 1px solid #714899;
-  background: linear-gradient(112deg, #312144 0%, #54317f 62%, #a678b8 100%) !important;
-  box-shadow: 0 18px 35px rgb(49 33 68 / 18%);
+  border: 1px solid #c2acd8;
+  background: linear-gradient(112deg, #d1bee4 0%, #ded0ec 51%, #b8e4df 100%) !important;
+  box-shadow: 0 16px 32px rgb(49 33 68 / 12%);
 }
 
 .san-design .vh-hero-enter::before {
@@ -623,29 +644,37 @@
   top: -8rem;
   width: 24rem;
   height: 24rem;
-  background: radial-gradient(circle, rgb(248 215 151 / 25%), transparent 70%);
+  background: radial-gradient(circle, rgb(39 184 178 / 35%), transparent 70%);
   border-radius: 50%;
   pointer-events: none;
   animation: san-ambient 15s ease-in-out infinite;
 }
 
 .san-design .vh-hero-enter .vh-primary-action {
-  background: #e9ad65 !important;
-  color: #312144 !important;
-  box-shadow: 0 9px 22px rgb(49 33 68 / 22%);
+  background: #58377e !important;
+  color: #ffffff !important;
+  box-shadow: 0 9px 22px rgb(49 33 68 / 16%);
 }
 
 .san-design .vh-hero-enter .vh-primary-action:hover {
-  background: #efd298 !important;
+  background: #704a98 !important;
 }
 
 .san-design .vh-stat-enter {
   position: relative;
   overflow: hidden;
   border-color: var(--san-line) !important;
-  border-radius: 1.5rem !important;
+  border-radius: 1.1rem !important;
   background: var(--san-paper) !important;
-  box-shadow: 0 8px 24px rgb(28 54 35 / 7%);
+  box-shadow: 0 8px 24px rgb(49 33 68 / 9%);
+}
+
+.san-design .vh-stat-enter:nth-child(2) {
+  background: #ddf0ec !important;
+}
+
+.san-design .vh-stat-enter:nth-child(3) {
+  background: #ebdfea !important;
 }
 
 .san-design .vh-stat-enter::before {
@@ -653,7 +682,7 @@
   position: absolute;
   inset: 0 0 auto;
   height: 3px;
-  background: linear-gradient(90deg, #714899, #e9ad65);
+  background: linear-gradient(90deg, #58377e, #27b8b2);
   transform: scaleX(0);
   transform-origin: left;
   transition: transform 320ms cubic-bezier(.22, 1, .36, 1);
@@ -665,19 +694,45 @@
 }
 
 .san-design .vh-stat-enter:hover {
-  border-color: #b4c8ae !important;
-  box-shadow: 0 16px 30px rgb(28 54 35 / 12%) !important;
+  border-color: #a8e3de !important;
+  box-shadow: 0 16px 30px rgb(49 33 68 / 9%) !important;
 }
 
 .san-design .vh-panel-enter {
   border-color: var(--san-line) !important;
-  border-radius: 1.5rem !important;
+  border-radius: 1.1rem !important;
   background: var(--san-paper) !important;
-  box-shadow: 0 8px 24px rgb(28 54 35 / 6%);
+  box-shadow: 0 8px 24px rgb(49 33 68 / 9%);
+}
+
+.san-design .vh-panel-enter > div:first-child {
+  background: #e2d4ef !important;
+  border-color: #cbbbdc !important;
+}
+
+.san-design .san-clients-card {
+  border-color: #bba6d0 !important;
+  background: #eae2f3 !important;
+  box-shadow: 0 12px 28px rgb(49 33 68 / 11%);
+}
+
+.san-design .san-clients-card > div:first-child {
+  border-color: #b9a4d1 !important;
+  background: linear-gradient(100deg, #d7c5e9 0%, #c4e5e2 100%) !important;
+}
+
+.san-design .san-clients-card .vh-client-table-shell {
+  border-color: #bda9d3 !important;
+  background: #eee7f5 !important;
+}
+
+.san-design .san-clients-card .vh-client-table-shell > div:first-child {
+  background: #e3d6ee !important;
+  border-color: #c6b2d9 !important;
 }
 
 .san-design .vh-client-table {
-  min-width: 1580px;
+  min-width: 1450px;
   table-layout: auto;
 }
 
@@ -686,26 +741,50 @@
   overflow-wrap: normal;
 }
 
-.san-design .vh-client-table td:nth-child(8),
-.san-design .vh-client-table td:nth-child(9) {
+.san-design .vh-client-table thead {
+  background: #59377d !important;
+}
+
+.san-design .vh-client-table thead th {
+  color: #ffffff !important;
+}
+
+.san-design .vh-client-table tbody tr:nth-child(odd) {
+  background: #f4eff9;
+}
+
+.san-design .vh-client-table tbody tr:nth-child(even) {
+  background: #e7f2f0;
+}
+
+.san-design .vh-client-table tbody tr:hover {
+  background: #d5ece8 !important;
+}
+
+.san-design .vh-client-table tbody tr:hover > td {
+  background: #d5ece8 !important;
+}
+
+.san-design .vh-client-table td:nth-child(7),
+.san-design .vh-client-table td:nth-child(8) {
   white-space: nowrap;
   overflow-wrap: normal;
 }
 
-.san-design .vh-client-table th:nth-child(10),
-.san-design .vh-client-table td:nth-child(10),
-.san-design .vh-client-table th:nth-child(12),
-.san-design .vh-client-table td:nth-child(12),
-.san-design .vh-client-table th:nth-child(14),
-.san-design .vh-client-table td:nth-child(14) {
+.san-design .vh-client-table th:nth-child(9),
+.san-design .vh-client-table td:nth-child(9),
+.san-design .vh-client-table th:nth-child(11),
+.san-design .vh-client-table td:nth-child(11),
+.san-design .vh-client-table th:nth-child(13),
+.san-design .vh-client-table td:nth-child(13) {
   min-width: 105px !important;
   white-space: nowrap;
   overflow-wrap: normal;
 }
 
 .san-design .san-client-summary {
-  background: linear-gradient(135deg, #fffdfa, #f7f0fb);
-  box-shadow: 0 8px 24px rgb(28 54 35 / 5%);
+  background: linear-gradient(135deg, #ffffff, #f1fbfa);
+  box-shadow: 0 8px 24px rgb(49 33 68 / 5%);
 }
 
 .san-design .san-quota-row {
@@ -713,26 +792,26 @@
 }
 
 .san-design .san-quota-row:hover {
-  border-color: #b9cdb2;
-  background-color: #f7faf4;
-  box-shadow: 0 8px 20px rgb(28 54 35 / 8%);
+  border-color: #a8e3de;
+  background-color: #f1fbfa;
+  box-shadow: 0 8px 20px rgb(49 33 68 / 7%);
 }
 
 .san-login {
-  background: linear-gradient(145deg, #211230 0%, #382450 55%, #54317f 100%) !important;
+  background: linear-gradient(145deg, #e7f8f6 0%, #ece8f6 55%, #dcd6ed 100%) !important;
 }
 
 .san-login-ambient {
   background-image:
     radial-gradient(circle at 10% 12%, rgb(166 120 184 / 20%), transparent 31%),
-    radial-gradient(circle at 91% 86%, rgb(229 154 58 / 17%), transparent 29%);
+    radial-gradient(circle at 91% 86%, rgb(39 184 178 / 17%), transparent 29%);
   pointer-events: none;
   animation: san-ambient 16s ease-in-out infinite;
 }
 
 .san-login .vh-login-shell-enter {
-  border-color: rgb(244 235 210 / 24%) !important;
-  box-shadow: 0 38px 110px rgb(6 28 15 / 45%) !important;
+  border-color: rgb(113 72 153 / 15%) !important;
+  box-shadow: 0 38px 110px rgb(49 33 68 / 18%) !important;
 }
 
 .san-login-visual::after {
@@ -740,7 +819,7 @@
   position: absolute;
   inset: auto 0 0;
   height: 5px;
-  background: linear-gradient(90deg, #714899, #e9ad65, #714899);
+  background: linear-gradient(90deg, #58377e, #27b8b2, #58377e);
   transform-origin: left;
   animation: san-accent-reveal 750ms 350ms cubic-bezier(.22, 1, .36, 1) both;
 }

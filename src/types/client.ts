@@ -26,7 +26,6 @@ export interface ClientRegistrationPayload {
   dni2?: string;
   celular1?: string;
   email1?: string;
-  bloque: string;
   manzana: string;
   lote: string;
   metraje: number;

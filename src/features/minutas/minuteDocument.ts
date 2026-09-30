@@ -5,7 +5,7 @@ import { buildSchedule, documentLabel, money, validateMinute, type MinuteDraft }
 // condiciones contractuales propios no forman parte de este proyecto.
 const green = '54317F';
 const navy = '312144';
-const gold = 'E59A3A';
+const accent = '27B8B2';
 const pale = 'F3EAF9';
 const ink = '202124';
 const pending = (label: string) => '[PENDIENTE: ' + label + ']';
@@ -146,7 +146,7 @@ export async function createMinuteDocument(draft: MinuteDraft): Promise<Blob> {
   const scheduleChildren = [
     brandTable,
     new Paragraph({ children: [run('CRONOGRAMA DE PAGOS', true, green, 32, 'Aptos')], alignment: AlignmentType.CENTER, spacing: { before: 120, after: 130 } }),
-    new Paragraph({ shading: { fill: gold }, children: [run('Teléfono de cobranza San Bartolomeo: ' + phone, true, navy, 17, 'Aptos')], alignment: AlignmentType.CENTER, spacing: { before: 40, after: 40 } }),
+    new Paragraph({ shading: { fill: accent }, children: [run('Teléfono de cobranza San Bartolomeo: ' + phone, true, navy, 17, 'Aptos')], alignment: AlignmentType.CENTER, spacing: { before: 40, after: 40 } }),
     metadata,
     new Paragraph({ children: [run('DETALLE DE CUOTAS', true, green, 21, 'Aptos')], spacing: { before: 155, after: 75 } }),
     new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: scheduleRows }),

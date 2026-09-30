@@ -17,7 +17,6 @@ interface DocumentClient {
   dni2?: string;
   manzana: string;
   lote: string;
-  bloque?: string;
   cuotas?: Installment[];
 }
 
@@ -95,7 +94,7 @@ export function ResolutionDraftButton({ client }: { client: DocumentClient }) {
     pdf.setTextColor(150, 55, 45);
     pdf.text('BORRADOR PARA REVISION. SIN FIRMA NI NOTIFICACION.', 18, 57);
     pdf.setTextColor(0, 0, 0);
-    const property = `${client.bloque ? `Bloque ${client.bloque}, ` : ''}Mz. ${client.manzana}, Lote ${client.lote}`;
+    const property = `Mz. ${client.manzana}, Lote ${client.lote}`;
     const totalCents = overdue.reduce((sum, cuota) => sum + Math.round(cuota.monto * 100), 0);
     let y = paragraph(pdf, `Destinatario: ${getClientDisplayName(client)}. Documento(s): ${getClientDisplayDnis(client)}. Inmueble: ${property}.`, 68);
     y = paragraph(pdf, `Referencia: contrato de compraventa de fecha [COMPLETAR FECHA DEL CONTRATO]. Asunto: propuesta de comunicación de resolución contractual por cuotas impagas, sujeta a revisión del contrato y de los requerimientos aplicables.`, y);

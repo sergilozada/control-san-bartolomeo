@@ -66,7 +66,6 @@ interface Client extends ImportedClientSource {
   email2?: string;
   observaciones?: string;
   observationEntries?: ObservationEntry[];
-  bloque?: string;
   manzana: string;
   lote: string;
   metraje: number;
@@ -334,20 +333,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!firebaseUser || !canManageClients(user?.role)) return false;
 
     try {
-      // La ubicación se identifica por bloque, manzana y lote.
+      // En San Bartolomeo cada lote se identifica solo por manzana y lote.
       // Firestore equality queries are exact; to avoid issues with case/whitespace
       // and eventual consistency, compare against the shared company portfolio.
       const snapshot = await getDocs(query(projectCollection('clients')));
-      const normalizedNewBloque = (clientData.bloque || '').toString().trim().toLowerCase();
       const normalizedNewManzana = (clientData.manzana || '').toString().trim().toLowerCase();
       const normalizedNewLote = (clientData.lote || '').toString().trim().toLowerCase();
 
       for (const d of snapshot.docs) {
         const data = d.data() as any;
-        const block = (data.bloque || '').toString().trim().toLowerCase();
         const man = (data.manzana || '').toString().trim().toLowerCase();
         const lot = (data.lote || '').toString().trim().toLowerCase();
-        if (block === normalizedNewBloque && man === normalizedNewManzana && lot === normalizedNewLote) {
+        if (man === normalizedNewManzana && lot === normalizedNewLote) {
           return false; // Ya existe
         }
       }

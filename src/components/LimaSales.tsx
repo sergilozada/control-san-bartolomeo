@@ -65,7 +65,7 @@ export default function LimaSales() {
 
   const pending = items.filter(item => !item.paid).reduce((sum, item) => sum + item.amount, 0);
   return <div className="space-y-5">
-    <div className="rounded-3xl bg-[#312144] p-7 text-white"><p className="text-xs font-semibold uppercase tracking-widest text-[#e59a3a]">Equipo comercial · Lima</p><h1 className="brand-display mt-2 text-3xl">Vendedores de Lima</h1><p className="mt-2 text-sm text-white/80">Registra pagos semanales por ventas con contrato y confirma cuándo se abonan.</p></div>
+    <div className="rounded-[22px] border border-[#d9e8e8] bg-gradient-to-r from-white via-[#f4f1fa] to-[#e7f8f6] p-7 text-[#312144]"><p className="text-xs font-semibold uppercase tracking-widest text-[#0d6268]">Equipo comercial · Lima</p><h1 className="brand-display mt-2 text-3xl">Vendedores de Lima</h1><p className="mt-2 text-sm text-[#5f6878]">Registra pagos semanales por ventas con contrato y confirma cuándo se abonan.</p></div>
     {error && <p role="alert" className="rounded-xl bg-rose-50 p-3 text-sm text-rose-800">{error}</p>}
     <div className="grid gap-5 xl:grid-cols-[minmax(320px,0.9fr)_minmax(0,1.4fr)]">
       <Card><CardHeader><CardTitle>Registrar venta y pago semanal</CardTitle></CardHeader><CardContent><form onSubmit={event => void create(event)} className="grid gap-4 sm:grid-cols-2">
