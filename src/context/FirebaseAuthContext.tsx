@@ -18,13 +18,15 @@ import {
   orderBy,
   arrayUnion,
 } from 'firebase/firestore';
-import { auth, db, storage } from '@/services/firebase';
+import { auth, isStorageEnabled, projectCollection, projectDoc, projectStorageRoot, storage } from '@/services/firebase';
 import { ref as storageRef, listAll, deleteObject } from 'firebase/storage';
 import type { ObservationEntry, Titular } from '@/types/client';
 import { clientMatchesTitular } from '@/types/client';
 import { createClientWithAudit, updateClientWithAudit, deleteClientWithAudit } from '@/services/audit';
 import { updateQuotaWithAudit } from '@/services/audit';
 import { canManageClients, canManageReceipts, canRegisterPayments, type UserRole } from '@/config/permissions';
+import { calculateLateFee } from '@/config/paymentPolicy';
+import type { ImportedClientSource } from '@/lib/importedClients';
 
 interface User {
   id: string;
@@ -44,14 +46,14 @@ export interface DemoAuditEntry {
 }
 
 const demoAccounts: Record<UserRole, { username: string; email: string }> = {
-  admin: { username: 'Administrador de muestra', email: 'admin@sanbartolomeo.example' },
-  pagos: { username: 'Pagos de muestra', email: 'pagos@sanbartolomeo.example' },
-  boletas: { username: 'Boletas de muestra', email: 'boletas@sanbartolomeo.example' },
-  legal: { username: 'Legal de muestra', email: 'legal@sanbartolomeo.example' },
-  consulta: { username: 'Consulta de muestra', email: 'consulta@sanbartolomeo.example' },
+  admin: { username: 'Administrador de muestra', email: 'admin@san-bartolomeo.example' },
+  pagos: { username: 'Pagos de muestra', email: 'pagos@san-bartolomeo.example' },
+  boletas: { username: 'Boletas de muestra', email: 'boletas@san-bartolomeo.example' },
+  legal: { username: 'Legal de muestra', email: 'legal@san-bartolomeo.example' },
+  consulta: { username: 'Consulta de muestra', email: 'consulta@san-bartolomeo.example' },
 };
 
-interface Client {
+interface Client extends ImportedClientSource {
   id: string;
   titulares?: Titular[];
   nombre1: string;
@@ -64,6 +66,7 @@ interface Client {
   email2?: string;
   observaciones?: string;
   observationEntries?: ObservationEntry[];
+  bloque?: string;
   manzana: string;
   lote: string;
   metraje: number;
@@ -112,6 +115,7 @@ interface AuthContextType {
   calculateMora: (vencimiento: string, monto: number) => number;
   searchClients: (manzana: string, lote: string, dniNombre?: string) => Client[];
   markCuotaAsPaid: (clientId: string, cuotaIndex: number, fechaPago: string) => Promise<void>;
+  unmarkCuotaAsPaid: (clientId: string, cuotaIndex: number) => Promise<void>;
   updateCuotaAmount: (clientId: string, newAmount: number) => Promise<void>;
   updateCuotaDates: (clientId: string, cuotaIndex: number, newDate: string) => Promise<void>;
   appendObservation: (clientId: string, text: string) => Promise<void>;
@@ -172,7 +176,7 @@ export const DemoAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     logout: async () => { window.location.assign(window.location.pathname); },
     addClient: previewOnly, updateClient: previewOnly, deleteClient: previewOnly,
     generateCuotas: previewOnly, updateCuota: previewOnly,
-    calculateMora: (dueDate: string) => Math.max(0, Math.floor((Date.now() - parseLocalDate(dueDate).getTime()) / 86400000) - 7) * 2,
+    calculateMora: (dueDate: string) => calculateLateFee(dueDate),
     searchClients: (manzana, lote, dniNombre) => clients.filter(client =>
       (!manzana || client.manzana.toLowerCase().includes(manzana.toLowerCase())) &&
       (!lote || client.lote.toLowerCase().includes(lote.toLowerCase())) &&
@@ -190,7 +194,20 @@ export const DemoAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         },
       }));
       recordDemoChange(clientId, 'pago_registrar', ['cuotas'], `Cuota ${client.cuotas[cuotaIndex].numero} marcada pagada (muestra)`);
-    }, updateCuotaAmount: previewOnly,
+    },
+    unmarkCuotaAsPaid: async (clientId, cuotaIndex) => {
+      if (!canRegisterPayments(previewRole)) throw new Error('Este usuario no registra pagos.');
+      const client = clients.find(item => item.id === clientId);
+      if (!client?.cuotas?.[cuotaIndex] || client.cuotas[cuotaIndex].estado !== 'pagado') throw new Error('Pago no disponible.');
+      setDemoOverrides(current => ({...current,[clientId]:{...client,cuotas:client.cuotas!.map((cuota,index) => {
+        if(index!==cuotaIndex)return cuota;
+        const {fechaPago: _fechaPago, ...withoutPaymentDate}=cuota;
+        void _fechaPago;
+        return {...withoutPaymentDate,estado:'pendiente' as const};
+      })}}));
+      recordDemoChange(clientId,'pago_desmarcar',['cuotas'],`Pago de cuota ${client.cuotas[cuotaIndex].numero} desmarcado (muestra)`);
+    },
+    updateCuotaAmount: previewOnly,
     updateCuotaDates: previewOnly,
     appendObservation: async (clientId, value) => {
       if (!canManageClients(previewRole)) throw new Error('Solo el administrador agrega observaciones.');
@@ -220,7 +237,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       unsubscribeProfile = undefined;
       setFirebaseUser(firebaseUser);
       if (firebaseUser) {
-        unsubscribeProfile = onSnapshot(doc(db, 'users', firebaseUser.uid), profile => {
+        unsubscribeProfile = onSnapshot(projectDoc('users', firebaseUser.uid), profile => {
           const data = profile.data();
           if (profile.exists() && data?.active === true &&
               ['admin', 'pagos', 'boletas', 'legal', 'consulta'].includes(data.role)) {
@@ -258,7 +275,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
-    const clientsQuery = query(collection(db, 'clients'), orderBy('fechaRegistro', 'desc'));
+    const clientsQuery = query(projectCollection('clients'), orderBy('fechaRegistro', 'desc'));
 
     // Subscribe with an error callback so we can handle transient network/protocol errors
     const unsubscribe = onSnapshot(clientsQuery, (snapshot) => {
@@ -273,7 +290,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // Ensure cuotas are generated for any client that doesn't have them yet (race condition fix)
       clientsData.forEach(c => {
-        if (c.userId === firebaseUser.uid && (!c.cuotas || c.cuotas.length === 0)) {
+        if (!c.importReview && c.userId === firebaseUser.uid && (!c.cuotas || c.cuotas.length === 0)) {
           // fire-and-forget; generateCuotas will fetch the client if necessary
           generateCuotas(c.id).catch(err => console.error('generateCuotas error on snapshot:', err));
         }
@@ -317,18 +334,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!firebaseUser || !canManageClients(user?.role)) return false;
 
     try {
-      // Verificar si ya existe un cliente con la misma manzana y lote
+      // La ubicación se identifica por bloque, manzana y lote.
       // Firestore equality queries are exact; to avoid issues with case/whitespace
       // and eventual consistency, compare against the shared company portfolio.
-      const snapshot = await getDocs(query(collection(db, 'clients')));
+      const snapshot = await getDocs(query(projectCollection('clients')));
+      const normalizedNewBloque = (clientData.bloque || '').toString().trim().toLowerCase();
       const normalizedNewManzana = (clientData.manzana || '').toString().trim().toLowerCase();
       const normalizedNewLote = (clientData.lote || '').toString().trim().toLowerCase();
 
       for (const d of snapshot.docs) {
         const data = d.data() as any;
+        const block = (data.bloque || '').toString().trim().toLowerCase();
         const man = (data.manzana || '').toString().trim().toLowerCase();
         const lot = (data.lote || '').toString().trim().toLowerCase();
-        if (man === normalizedNewManzana && lot === normalizedNewLote) {
+        if (block === normalizedNewBloque && man === normalizedNewManzana && lot === normalizedNewLote) {
           return false; // Ya existe
         }
       }
@@ -375,13 +394,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!firebaseUser || !canManageClients(user?.role)) throw new Error('Solo el administrador puede eliminar.');
     try {
       // Borrar adjuntos en todos los niveles (cuotas/índice/tipo/archivo y minutas).
-      try {
+      if (isStorageEnabled) try {
         const removeTree = async (folder: ReturnType<typeof storageRef>): Promise<void> => {
           const result = await listAll(folder);
           await Promise.all(result.items.map(item => deleteObject(item)));
           await Promise.all(result.prefixes.map(removeTree));
         };
-        await removeTree(storageRef(storage, `clients/${id}`));
+        await removeTree(storageRef(storage, `${projectStorageRoot}/clients/${id}`));
       } catch (err) {
         console.warn('Error cleaning up storage for client', id, err);
       }
@@ -428,7 +447,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // If client is not yet in local state (race with onSnapshot), fetch it directly from Firestore
     if (!client) {
       try {
-        const clientDoc = await getDoc(doc(db, 'clients', clientId));
+        const clientDoc = await getDoc(projectDoc('clients', clientId));
         if (clientDoc.exists()) {
           client = { id: clientDoc.id, ...(clientDoc.data() as any) } as Client;
         }
@@ -437,11 +456,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
 
-    if (!client) return;
+    if (!client || client.importReview) return;
 
     try {
       const cuotas: Cuota[] = [];
-      const fechaRegistro = new Date(client.fechaRegistro);
+      const fechaRegistro = parseLocalDate(client.fechaRegistro);
       
       // Agregar cuota inicial (número 0)
       if (client.inicial && client.inicial > 0) {
@@ -534,6 +553,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const unmarkCuotaAsPaid = async (clientId: string, cuotaIndex: number): Promise<void> => {
+    if (!canRegisterPayments(user?.role) || !firebaseUser) throw new Error('No tienes permiso para desmarcar pagos.');
+    const client = clients.find(c => c.id === clientId);
+    const cuota = client?.cuotas?.[cuotaIndex];
+    if (!client?.cuotas || !cuota || cuota.estado !== 'pagado') throw new Error('La cuota ya no figura pagada.');
+    const cuotas = client.cuotas.map((item, index) => {
+      if (index !== cuotaIndex) return item;
+      const { fechaPago: _fechaPago, ...withoutPaymentDate } = item;
+      void _fechaPago;
+      return { ...withoutPaymentDate, estado: 'pendiente' as const };
+    });
+    await updateQuotaWithAudit(firebaseUser, clientId, cuotas, cuotaIndex, 'pago_desmarcar');
+  };
+
   const updateCuotaAmount = async (clientId: string, newAmount: number): Promise<void> => {
     const client = clients.find(c => c.id === clientId);
     if (!client || !client.cuotas) return;
@@ -584,15 +617,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await updateClientWithAudit(firebaseUser, clientId, { observationEntries: arrayUnion(entry) }, 'Nueva anotación en el libro de observaciones');
   };
 
-  const calculateMora = (vencimiento: string, monto: number): number => {
-    const fechaVencimiento = parseLocalDate(vencimiento);
-    const hoy = new Date();
-    const diffTime = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate()).getTime() - new Date(fechaVencimiento.getFullYear(), fechaVencimiento.getMonth(), fechaVencimiento.getDate()).getTime();
-    const diasVencidos = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-    
-    // Contratos de muestra: S/ 2 diarios desde el octavo día de atraso.
-    return diasVencidos >= 8 ? (diasVencidos - 7) * 2 : 0;
-  };
+  const calculateMora = (vencimiento: string, _monto: number): number => calculateLateFee(vencimiento);
 
   const searchClients = (manzana: string, lote: string, dniNombre?: string): Client[] => {
     return clients.filter(client => {
@@ -625,6 +650,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       calculateMora,
       searchClients,
       markCuotaAsPaid,
+      unmarkCuotaAsPaid,
       updateCuotaAmount,
       updateCuotaDates,
       appendObservation,

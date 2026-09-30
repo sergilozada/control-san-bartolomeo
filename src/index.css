@@ -17,33 +17,33 @@
   }
 
   :root {
-    --background: 50 19% 94%;
-    --foreground: 222 36% 15%;
+    --background: 280 28% 97%;
+    --foreground: 273 35% 20%;
 
     --card: 45 100% 99%;
-    --card-foreground: 220 57% 19%;
+    --card-foreground: 273 35% 20%;
 
     --popover: 45 100% 99%;
-    --popover-foreground: 220 57% 19%;
+    --popover-foreground: 273 35% 20%;
 
-    --primary: 185 80% 26%;
+    --primary: 267 44% 35%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 169 49% 93%;
-    --secondary-foreground: 220 57% 19%;
+    --secondary: 277 48% 93%;
+    --secondary-foreground: 273 35% 20%;
 
     --muted: 50 23% 95%;
     --muted-foreground: 219 12% 47%;
 
-    --accent: 169 49% 93%;
-    --accent-foreground: 185 80% 26%;
+    --accent: 277 48% 93%;
+    --accent-foreground: 267 44% 35%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
     --border: 120 6% 86%;
     --input: 120 6% 86%;
-    --ring: 185 77% 34%;
+    --ring: 267 44% 35%;
 
     --radius: 0.875rem;
 
@@ -158,6 +158,21 @@
   }
 }
 
+@keyframes san-logo-rise {
+  from { opacity: 0; transform: translateY(10px) scale(.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes san-ambient {
+  0%, 100% { opacity: .5; transform: translate3d(0, 0, 0) scale(1); }
+  50% { opacity: .75; transform: translate3d(-12px, 9px, 0) scale(1.06); }
+}
+
+@keyframes san-accent-reveal {
+  from { opacity: 0; transform: scaleX(0); }
+  to { opacity: 1; transform: scaleX(1); }
+}
+
 @layer utilities {
   .vh-dashboard-shell {
     max-width: 100vw;
@@ -197,6 +212,10 @@
 
   .vh-hero-image {
     animation: vh-hero-focus 800ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .san-logo-reveal {
+    animation: san-logo-rise 700ms 120ms cubic-bezier(0.22, 1, 0.36, 1) both;
   }
 
   .vh-primary-action {
@@ -427,6 +446,13 @@
     transform: none !important;
   }
 
+  .san-logo-reveal,
+  .san-design .vh-hero-enter::before,
+  .san-login-ambient,
+  .san-design .vh-stat-enter::before {
+    animation: none !important;
+  }
+
   .vh-primary-action,
   .vh-primary-action:hover,
   .vh-primary-action:active {
@@ -462,125 +488,317 @@
 
   ::selection {
     background: #ccebe6;
-    color: #33204f;
+    color: #312144;
   }
 }
 
-/* Vista opcional para comparar el rediseño; el diseño actual sigue siendo el predeterminado. */
-.sb-design-alt.vh-dashboard-shell {
-  background: #f7f3eb !important;
-  background-image: radial-gradient(circle at 90% 5%, rgb(255 158 50 / 13%), transparent 26rem) !important;
+/* Identidad visual de San Bartolomeo: violeta, papel claro y acentos cálidos. */
+.san-design,
+.san-login {
+  --san-ink: #312144;
+  --san-pine: #382450;
+  --san-leaf: #714899;
+  --san-gold: #e59a3a;
+  --san-paper: #fffdfa;
+  --san-line: #e9e0ee;
 }
 
-.sb-design-alt .vh-header-enter {
-  border-color: #40245c !important;
-  background: #301c48 !important;
+.san-design.vh-dashboard-shell {
+  background-color: #f8f5fb !important;
+  background-image:
+    radial-gradient(circle at 92% 4%, rgb(229 154 58 / 12%), transparent 25rem),
+    radial-gradient(circle at 4% 86%, rgb(113 72 153 / 10%), transparent 28rem) !important;
 }
 
-.sb-design-alt .vh-header-enter p,
-.sb-design-alt .vh-header-enter button[aria-label="Cerrar sesión"] {
+.san-design .vh-header-enter {
+  border-color: #382450 !important;
+  background: rgb(49 33 68 / 96%) !important;
+  box-shadow: 0 8px 24px rgb(49 33 68 / 13%);
+}
+
+.san-design .vh-header-enter p,
+.san-design .vh-header-enter button[aria-label="Cerrar sesión"] {
   color: #fff !important;
 }
 
-.sb-design-alt .vh-header-enter button[aria-label="Cerrar sesión"] {
-  border-color: #76578f !important;
-  background: #4c3069 !important;
+.san-design .vh-header-enter button[aria-label="Cerrar sesión"] {
+  border-color: #8e75a8 !important;
+  background: #54317f !important;
 }
 
-.sb-design-alt .vh-header-enter span.rounded-full {
-  border-color: #816797 !important;
-  background: #4c3069 !important;
+.san-design .vh-header-enter button[aria-label="Cerrar sesión"]:hover {
+  border-color: #e5c888 !important;
+  background: #714899 !important;
+}
+
+.san-design .vh-header-enter span.rounded-full {
+  border-color: #8e75a8 !important;
+  background: #54317f !important;
   color: #fff !important;
 }
 
-.sb-design-alt .vh-sidebar-enter {
-  border-color: #4d3068 !important;
-  background: #3a2253 !important;
-  box-shadow: 8px 0 28px rgb(33 16 50 / 12%);
+.san-design .vh-sidebar-enter {
+  border-color: #4d3465 !important;
+  background: linear-gradient(180deg, #382450 0%, #251536 100%) !important;
+  box-shadow: 8px 0 28px rgb(49 33 68 / 12%);
 }
 
-.sb-design-alt .vh-menu-button {
-  border-color: #7b6091 !important;
-  background: #4b3067 !important;
+.san-design .vh-menu-button {
+  border-color: #8e75a8 !important;
+  background: #54317f !important;
   color: #fff !important;
 }
 
-.sb-design-alt .vh-menu-button span,
-.sb-design-alt .vh-menu-button .vh-menu-bar {
+.san-design .vh-menu-button:hover {
+  border-color: #e5c888 !important;
+  background: #714899 !important;
+}
+
+.san-design .vh-menu-button span,
+.san-design .vh-menu-button .vh-menu-bar {
   color: #fff !important;
 }
 
-.sb-design-alt .vh-menu-button .vh-menu-bar {
-  background: #ffab4f !important;
+.san-design .vh-menu-button .vh-menu-bar {
+  background: #e5c888 !important;
 }
 
-.sb-design-alt #dashboard-navigation [role="tab"] {
-  color: #f2e9fa !important;
+.san-design #dashboard-navigation [role="tab"] {
+  color: #f6effb !important;
 }
 
-.sb-design-alt #dashboard-navigation [role="tab"] span {
-  color: #d8c7e4 !important;
+.san-design #dashboard-navigation [role="tab"] span {
+  color: #dccbe9 !important;
 }
 
-.sb-design-alt #dashboard-navigation [role="tab"]:hover {
-  background: #553a70 !important;
+.san-design #dashboard-navigation [role="tab"]:hover {
+  background: #624080 !important;
 }
 
-.sb-design-alt #dashboard-navigation [role="tab"][data-state="active"] {
-  border-color: #ffb15e !important;
-  background: #ff9e32 !important;
-  color: #2c193d !important;
+.san-design #dashboard-navigation [role="tab"][data-state="active"] {
+  border-color: #e8cc90 !important;
+  background: #e9ad65 !important;
+  color: #312144 !important;
   font-weight: 700;
 }
 
-.sb-design-alt #dashboard-navigation [role="tab"][data-state="active"] span {
-  color: #2c193d !important;
+.san-design #dashboard-navigation [role="tab"][data-state="active"] span {
+  color: #312144 !important;
 }
 
-.sb-design-alt .vh-hero-enter {
-  border: 1px solid #138f8e;
-  background: linear-gradient(112deg, #126b74 0%, #1b9795 60%, #2bad9d 100%) !important;
-  box-shadow: 0 18px 35px rgb(11 111 113 / 17%);
+.san-design .san-nav-item {
+  position: relative;
+  isolation: isolate;
 }
 
-.sb-design-alt .vh-hero-enter > img,
-.sb-design-alt .vh-hero-enter > div.absolute.inset-0 {
-  display: none;
-}
-
-.sb-design-alt .vh-hero-enter::before {
+.san-design .san-nav-item::before {
   content: "";
   position: absolute;
-  right: -7rem;
-  top: -10rem;
-  width: 27rem;
-  height: 27rem;
-  border: 4rem solid rgb(255 255 255 / 10%);
+  left: 0;
+  top: 24%;
+  bottom: 24%;
+  width: 3px;
+  border-radius: 3px;
+  background: #fff7e6;
+  opacity: 0;
+  transform: scaleY(.2);
+  transition: transform 240ms cubic-bezier(.22, 1, .36, 1), opacity 180ms ease;
+}
+
+.san-design .san-nav-item[data-state="active"]::before {
+  opacity: 1;
+  transform: scaleY(1);
+}
+
+.san-design .vh-hero-enter {
+  border: 1px solid #714899;
+  background: linear-gradient(112deg, #312144 0%, #54317f 62%, #a678b8 100%) !important;
+  box-shadow: 0 18px 35px rgb(49 33 68 / 18%);
+}
+
+.san-design .vh-hero-enter::before {
+  content: "";
+  position: absolute;
+  right: -5rem;
+  top: -8rem;
+  width: 24rem;
+  height: 24rem;
+  background: radial-gradient(circle, rgb(248 215 151 / 25%), transparent 70%);
   border-radius: 50%;
   pointer-events: none;
+  animation: san-ambient 15s ease-in-out infinite;
 }
 
-.sb-design-alt .vh-hero-enter .vh-primary-action {
-  background: #ff9e32 !important;
-  color: #2c193d !important;
-  box-shadow: 0 9px 22px rgb(42 22 53 / 15%);
+.san-design .vh-hero-enter .vh-primary-action {
+  background: #e9ad65 !important;
+  color: #312144 !important;
+  box-shadow: 0 9px 22px rgb(49 33 68 / 22%);
 }
 
-.sb-design-alt .vh-stat-enter {
-  border-color: #ece3d7 !important;
+.san-design .vh-hero-enter .vh-primary-action:hover {
+  background: #efd298 !important;
+}
+
+.san-design .vh-stat-enter {
+  position: relative;
+  overflow: hidden;
+  border-color: var(--san-line) !important;
   border-radius: 1.5rem !important;
-  background: #fffdf9 !important;
-  box-shadow: 0 8px 24px rgb(49 34 59 / 7%);
+  background: var(--san-paper) !important;
+  box-shadow: 0 8px 24px rgb(28 54 35 / 7%);
 }
 
-.sb-design-alt .vh-panel-enter {
-  border-color: #ece3d7 !important;
+.san-design .vh-stat-enter::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: linear-gradient(90deg, #714899, #e9ad65);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 320ms cubic-bezier(.22, 1, .36, 1);
+}
+
+.san-design .vh-stat-enter:hover::before,
+.san-design .vh-stat-enter:focus-visible::before {
+  transform: scaleX(1);
+}
+
+.san-design .vh-stat-enter:hover {
+  border-color: #b4c8ae !important;
+  box-shadow: 0 16px 30px rgb(28 54 35 / 12%) !important;
+}
+
+.san-design .vh-panel-enter {
+  border-color: var(--san-line) !important;
   border-radius: 1.5rem !important;
-  box-shadow: 0 8px 24px rgb(49 34 59 / 6%);
+  background: var(--san-paper) !important;
+  box-shadow: 0 8px 24px rgb(28 54 35 / 6%);
+}
+
+.san-design .vh-client-table {
+  min-width: 1580px;
+  table-layout: auto;
+}
+
+.san-design .vh-client-table th {
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
+
+.san-design .vh-client-table td:nth-child(8),
+.san-design .vh-client-table td:nth-child(9) {
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
+
+.san-design .vh-client-table th:nth-child(10),
+.san-design .vh-client-table td:nth-child(10),
+.san-design .vh-client-table th:nth-child(12),
+.san-design .vh-client-table td:nth-child(12),
+.san-design .vh-client-table th:nth-child(14),
+.san-design .vh-client-table td:nth-child(14) {
+  min-width: 105px !important;
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
+
+.san-design .san-client-summary {
+  background: linear-gradient(135deg, #fffdfa, #f7f0fb);
+  box-shadow: 0 8px 24px rgb(28 54 35 / 5%);
+}
+
+.san-design .san-quota-row {
+  transition: border-color 180ms ease, background-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+
+.san-design .san-quota-row:hover {
+  border-color: #b9cdb2;
+  background-color: #f7faf4;
+  box-shadow: 0 8px 20px rgb(28 54 35 / 8%);
+}
+
+.san-login {
+  background: linear-gradient(145deg, #211230 0%, #382450 55%, #54317f 100%) !important;
+}
+
+.san-login-ambient {
+  background-image:
+    radial-gradient(circle at 10% 12%, rgb(166 120 184 / 20%), transparent 31%),
+    radial-gradient(circle at 91% 86%, rgb(229 154 58 / 17%), transparent 29%);
+  pointer-events: none;
+  animation: san-ambient 16s ease-in-out infinite;
+}
+
+.san-login .vh-login-shell-enter {
+  border-color: rgb(244 235 210 / 24%) !important;
+  box-shadow: 0 38px 110px rgb(6 28 15 / 45%) !important;
+}
+
+.san-login-visual::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: 5px;
+  background: linear-gradient(90deg, #714899, #e9ad65, #714899);
+  transform-origin: left;
+  animation: san-accent-reveal 750ms 350ms cubic-bezier(.22, 1, .36, 1) both;
+}
+
+.san-login .vh-primary-action {
+  background: linear-gradient(110deg, #714899, #54317f) !important;
+  box-shadow: 0 10px 24px rgb(49 33 68 / 21%) !important;
+}
+
+.san-login .vh-primary-action:hover {
+  background: linear-gradient(110deg, #624080, #382450) !important;
 }
 
 @media (max-width: 1023px) {
-  .sb-design-alt .vh-sidebar-enter {
+  .san-design .vh-sidebar-enter {
     box-shadow: none;
+  }
+
+  .san-design #dashboard-navigation {
+    flex: none;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-color: #a68cba transparent;
+    scrollbar-width: thin;
+  }
+
+  .san-design #dashboard-navigation [role="tablist"] {
+    width: max-content;
+    min-width: 100%;
+    flex-direction: row;
+    gap: .35rem;
+    padding: 0 0 .4rem;
+  }
+
+  .san-design #dashboard-navigation [role="tab"] {
+    width: auto;
+    min-width: max-content;
+    min-height: 2.75rem;
+    flex: none;
+    gap: .5rem;
+    padding: .5rem .75rem;
+    white-space: nowrap;
+  }
+
+  .san-design #dashboard-navigation .san-nav-description {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .san-login-visual::after {
+    animation: none;
+    transform: none;
+  }
+
+  .san-design .san-nav-item::before,
+  .san-design .vh-stat-enter::before,
+  .san-design .san-quota-row {
+    transition: none;
   }
 }

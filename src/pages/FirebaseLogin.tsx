@@ -86,27 +86,23 @@ export default function FirebaseLogin({ preview = false }: { preview?: boolean }
   };
 
   return (
-    <main className="vh-login-scene relative flex min-h-screen items-center justify-center overflow-hidden bg-[#33204f] p-3 sm:px-6 sm:py-3">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_10%_10%,rgba(20,142,152,0.28),transparent_30%),radial-gradient(circle_at_90%_90%,rgba(201,162,77,0.18),transparent_26%)]" aria-hidden="true" />
+    <main className="vh-login-scene san-login relative flex min-h-screen items-center justify-center overflow-hidden bg-[#251536] p-3 sm:px-6 sm:py-3">
+      <div className="san-login-ambient absolute inset-0" aria-hidden="true" />
 
       <div className="vh-login-shell-enter relative grid w-full max-w-6xl overflow-hidden rounded-[26px] border border-white/15 bg-[#fffefb] shadow-[0_38px_110px_rgba(0,8,24,0.46)] lg:min-h-[680px] lg:grid-cols-[1.12fr_0.88fr]">
-        <section className="vh-login-visual-enter relative hidden min-h-[680px] overflow-hidden p-10 text-white lg:flex lg:flex-col lg:justify-between xl:p-12">
-          <img
-            src="/brand/san-bartolomeo-hero.jpeg"
-            alt="Ingreso de San Bartolomeo Inmobiliaria"
-            className="vh-hero-image absolute inset-0 h-full w-full object-cover object-center"
-          />
-          <div className="absolute inset-0 bg-gradient-to-b from-[#261838]/50 via-[#261838]/30 to-[#261838]/95" aria-hidden="true" />
+        <section className="vh-login-visual-enter san-login-visual relative hidden min-h-[680px] overflow-hidden bg-gradient-to-br from-[#54317f] via-[#382450] to-[#211230] p-10 text-white lg:flex lg:flex-col lg:justify-between xl:p-12">
+          <div className="pointer-events-none absolute -right-32 top-24 h-96 w-96 rounded-full border border-white/15 bg-white/5 blur-sm" aria-hidden="true" />
+          <div className="pointer-events-none absolute -bottom-28 -left-24 h-80 w-80 rounded-full bg-[#e59a3a]/15 blur-3xl" aria-hidden="true" />
 
           <div className="relative">
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-[#261838]/35 px-3 py-1.5 text-xs font-semibold tracking-wide text-[#ead7fb] backdrop-blur-md">
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-[#1b2c1f]/35 px-3 py-1.5 text-xs font-semibold tracking-wide text-[#f7ebff] backdrop-blur-md">
               <Leaf className="h-3.5 w-3.5" />
               Administración inmobiliaria
             </div>
           </div>
 
           <div className="relative max-w-xl">
-            <div className="mb-6 h-px w-20 bg-[#ff9e32]" aria-hidden="true" />
+            <div className="mb-6 h-px w-20 bg-[#e59a3a]" aria-hidden="true" />
             <h1 className="brand-display text-5xl font-medium leading-[0.98] tracking-[-0.035em] xl:text-6xl">
               Control de clientes<br />y pagos
             </h1>
@@ -114,9 +110,9 @@ export default function FirebaseLogin({ preview = false }: { preview?: boolean }
               Una plataforma clara y segura para administrar clientes, pagos y documentos del proyecto.
             </p>
             <div className="mt-8 flex flex-wrap gap-2">
-              <span className="rounded-full border border-white/15 bg-[#261838]/35 px-3 py-2 text-xs text-white/85 backdrop-blur-md">Cartera de clientes</span>
-              <span className="rounded-full border border-white/15 bg-[#261838]/35 px-3 py-2 text-xs text-white/85 backdrop-blur-md">Control de pagos</span>
-              <span className="rounded-full border border-white/15 bg-[#261838]/35 px-3 py-2 text-xs text-white/85 backdrop-blur-md">Documentos centralizados</span>
+              <span className="rounded-full border border-white/15 bg-[#1b2c1f]/35 px-3 py-2 text-xs text-white/85 backdrop-blur-md">Cartera de clientes</span>
+              <span className="rounded-full border border-white/15 bg-[#1b2c1f]/35 px-3 py-2 text-xs text-white/85 backdrop-blur-md">Control de pagos</span>
+              <span className="rounded-full border border-white/15 bg-[#1b2c1f]/35 px-3 py-2 text-xs text-white/85 backdrop-blur-md">Documentos centralizados</span>
             </div>
           </div>
         </section>
@@ -127,27 +123,27 @@ export default function FirebaseLogin({ preview = false }: { preview?: boolean }
               <img
                 src="/brand/san-bartolomeo-logo.jpeg"
                 alt="San Bartolomeo Inmobiliaria"
-                className="h-16 w-48 rounded-2xl border border-[#d9ddd9] bg-white object-cover shadow-sm"
+                className="san-logo-reveal h-20 w-40 rounded-lg bg-white object-cover object-center sm:w-48"
               />
               <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-[#54317f]">
-                <span className="h-2 w-2 rounded-full bg-[#72be44]" aria-hidden="true" />
+                <span className="h-2 w-2 rounded-full bg-[#e59a3a]" aria-hidden="true" />
                 Acceso seguro
               </div>
             </div>
 
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#54317f]">Panel administrativo</p>
-            <h2 className="brand-display mt-2 text-4xl font-medium tracking-tight text-[#33204f]">Bienvenido</h2>
+            <h2 className="brand-display mt-2 text-4xl font-medium tracking-tight text-[#312144]">Bienvenido</h2>
             <p className="mt-3 text-sm leading-6 text-[#697386]">
               Ingresa tus credenciales para continuar a San Bartolomeo Inmobiliaria.
             </p>
             {preview && <div className="mt-5 rounded-xl border border-[#e9d4ae] bg-[#fff7e7] p-3 text-sm text-[#69430d]">
               Firebase aún no está conectado. Puedes recorrer el panel con datos ficticios.
-              <a href="?demo" className="mt-3 flex min-h-10 items-center justify-center rounded-lg bg-[#54317f] px-4 font-semibold text-white hover:bg-[#33204f]">Entrar a la vista de muestra</a>
+              <a href="?demo" className="mt-3 flex min-h-10 items-center justify-center rounded-lg bg-[#54317f] px-4 font-semibold text-white hover:bg-[#312144]">Entrar a la vista de muestra</a>
             </div>}
 
             <form onSubmit={handleSubmit} className="mt-8 space-y-5" aria-busy={loading}>
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-[#33204f]">Correo electrónico</Label>
+                <Label htmlFor="email" className="text-[#312144]">Correo electrónico</Label>
                 <Input
                   id="email"
                   type="email"
@@ -157,12 +153,12 @@ export default function FirebaseLogin({ preview = false }: { preview?: boolean }
                   placeholder="nombre@empresa.com"
                   required
                   disabled={preview}
-                  className="h-12 rounded-xl bg-white transition-[border-color,box-shadow] duration-200 focus-visible:border-[#5c3585]"
+                  className="h-12 rounded-xl bg-white transition-[border-color,box-shadow] duration-200 focus-visible:border-[#6b4492]"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-[#33204f]">Contraseña</Label>
+                <Label htmlFor="password" className="text-[#312144]">Contraseña</Label>
                 <div className="relative">
                   <Input
                     id="password"
@@ -173,13 +169,13 @@ export default function FirebaseLogin({ preview = false }: { preview?: boolean }
                     placeholder="Ingresa tu contraseña"
                     required
                     disabled={preview}
-                    className="h-12 rounded-xl bg-white pr-12 transition-[border-color,box-shadow] duration-200 focus-visible:border-[#5c3585]"
+                    className="h-12 rounded-xl bg-white pr-12 transition-[border-color,box-shadow] duration-200 focus-visible:border-[#6b4492]"
                   />
                   <button
                     type="button"
                     aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
                     onClick={() => setShowPassword(current => !current)}
-                    className="absolute right-1 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-lg text-[#697386] transition-colors hover:bg-[#f2ebf7] hover:text-[#54317f] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5c3585]"
+                    className="absolute right-1 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-lg text-[#697386] transition-colors hover:bg-[#f3eaf9] hover:text-[#54317f] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6b4492]"
                   >
                     {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                   </button>
@@ -189,7 +185,7 @@ export default function FirebaseLogin({ preview = false }: { preview?: boolean }
                     type="button"
                     onClick={openResetDialog}
                     disabled={preview}
-                    className="-mr-2 inline-flex min-h-11 items-center rounded-lg px-2 text-sm font-semibold text-[#54317f] transition-colors hover:bg-[#f2ebf7] hover:text-[#095c63] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5c3585] focus-visible:ring-offset-2"
+                    className="-mr-2 inline-flex min-h-11 items-center rounded-lg px-2 text-sm font-semibold text-[#54317f] transition-colors hover:bg-[#f3eaf9] hover:text-[#095c63] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6b4492] focus-visible:ring-offset-2"
                   >
                     ¿Olvidaste tu contraseña?
                   </button>
@@ -202,7 +198,7 @@ export default function FirebaseLogin({ preview = false }: { preview?: boolean }
                 </Alert>
               )}
 
-              <Button type="submit" size="lg" className="vh-primary-action h-12 w-full rounded-xl bg-gradient-to-r from-[#5c3585] to-[#54317f] shadow-[0_10px_24px_rgba(13,111,120,0.22)]" disabled={loading || preview}>
+              <Button type="submit" size="lg" className="vh-primary-action h-12 w-full rounded-xl bg-gradient-to-r from-[#6b4492] to-[#54317f] shadow-[0_10px_24px_rgba(13,111,120,0.22)]" disabled={loading || preview}>
                 {loading ? (
                   <>
                     <LoaderCircle className="h-4 w-4 animate-spin motion-reduce:animate-none" />
@@ -232,10 +228,10 @@ export default function FirebaseLogin({ preview = false }: { preview?: boolean }
       <Dialog open={resetDialogOpen} onOpenChange={setResetDialogOpen}>
         <DialogContent className="max-w-md rounded-2xl border-[#d9ddd9] bg-[#fffefb] p-6 shadow-2xl sm:p-7">
           <DialogHeader className="text-left">
-            <div className="mb-2 flex h-11 w-11 items-center justify-center rounded-xl bg-[#f2ebf7] text-[#54317f]" aria-hidden="true">
+            <div className="mb-2 flex h-11 w-11 items-center justify-center rounded-xl bg-[#f3eaf9] text-[#54317f]" aria-hidden="true">
               <MailCheck className="h-5 w-5" />
             </div>
-            <DialogTitle className="brand-display text-2xl font-semibold text-[#33204f]">
+            <DialogTitle className="brand-display text-2xl font-semibold text-[#312144]">
               {resetSent ? 'Revisa tu correo' : 'Restablecer contraseña'}
             </DialogTitle>
             <DialogDescription className="leading-6 text-[#697386]">
@@ -253,7 +249,7 @@ export default function FirebaseLogin({ preview = false }: { preview?: boolean }
               <DialogFooter>
                 <Button
                   type="button"
-                  className="vh-primary-action h-11 w-full rounded-xl bg-gradient-to-r from-[#5c3585] to-[#54317f]"
+                  className="vh-primary-action h-11 w-full rounded-xl bg-gradient-to-r from-[#6b4492] to-[#54317f]"
                   onClick={() => setResetDialogOpen(false)}
                 >
                   Volver al inicio de sesión
@@ -263,7 +259,7 @@ export default function FirebaseLogin({ preview = false }: { preview?: boolean }
           ) : (
             <form onSubmit={handleResetSubmit} className="space-y-5" aria-busy={resetLoading}>
               <div className="space-y-2">
-                <Label htmlFor="reset-email" className="text-[#33204f]">Correo electrónico</Label>
+                <Label htmlFor="reset-email" className="text-[#312144]">Correo electrónico</Label>
                 <Input
                   id="reset-email"
                   type="email"
@@ -278,7 +274,7 @@ export default function FirebaseLogin({ preview = false }: { preview?: boolean }
                   aria-describedby={resetError ? 'reset-email-error' : 'reset-email-help'}
                   placeholder="nombre@empresa.com"
                   required
-                  className="h-12 rounded-xl bg-white transition-[border-color,box-shadow] duration-200 focus-visible:border-[#5c3585]"
+                  className="h-12 rounded-xl bg-white transition-[border-color,box-shadow] duration-200 focus-visible:border-[#6b4492]"
                 />
                 <p id="reset-email-help" className="text-xs leading-5 text-[#697386]">Solo necesitas el correo registrado; no solicitaremos datos de clientes.</p>
               </div>
@@ -301,7 +297,7 @@ export default function FirebaseLogin({ preview = false }: { preview?: boolean }
                 </Button>
                 <Button
                   type="submit"
-                  className="vh-primary-action h-11 rounded-xl bg-gradient-to-r from-[#5c3585] to-[#54317f]"
+                  className="vh-primary-action h-11 rounded-xl bg-gradient-to-r from-[#6b4492] to-[#54317f]"
                   disabled={resetLoading || !resetEmail.trim()}
                 >
                   {resetLoading ? (

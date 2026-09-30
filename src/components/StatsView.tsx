@@ -25,6 +25,7 @@ import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { toast } from 'sonner';
 import { getClientDisplayDnis, getClientDisplayName } from '@/types/client';
+import { needsFinancialReview } from '@/lib/importedClients';
 
   const fetchImageAsDataURL = async (url: string) => {
     try {
@@ -142,6 +143,7 @@ export default function StatsView({ showReport = false }: StatsViewProps) {
     const detalleRegistros: RegistroDetalle[] = [];
 
     clients.forEach(client => {
+      if (needsFinancialReview(client)) return;
       // Determine the effective entry date for the client.
       // Use the vencimiento of the initial cuota (numero === 0) if present — the report should be grouped by that vencimiento.
   const initialCuota = client.cuotas ? client.cuotas.find(c => c.numero === 0) : undefined;
@@ -153,18 +155,20 @@ export default function StatsView({ showReport = false }: StatsViewProps) {
         if (client.formaPago === 'cuotas') {
           clientesConCuotas++;
           // Count ingresos por iniciales based on the initial cuota amount or client.inicial (grouped by vencimiento)
-          if (initialCuota) {
+          if (initialCuota && (!client.importReview || initialCuota.estado === 'pagado')) {
             const inicialAmount = typeof initialCuota.monto === 'number' ? initialCuota.monto : (client.inicial || 0);
             ingresosPorIniciales += inicialAmount;
             totalIngresos += inicialAmount;
-          } else if (client.inicial) {
+          } else if (client.inicial && !client.importReview) {
             ingresosPorIniciales += client.inicial;
             totalIngresos += client.inicial;
           }
         } else {
           clientesAlContado++;
           // For contado clients, attribute an ingreso based on client.montoTotal (full price). If montoTotal missing, fallback to inicial.
-          const contadoAmount = Number(client.montoTotal ?? client.inicial ?? 0);
+          const contadoAmount = client.importReview
+            ? (client.cuotas || []).filter(c => c.estado === 'pagado').reduce((sum, c) => sum + c.monto, 0)
+            : Number(client.montoTotal ?? client.inicial ?? 0);
           ingresosPorContado += contadoAmount;
           totalIngresos += contadoAmount;
         }
@@ -548,8 +552,8 @@ export default function StatsView({ showReport = false }: StatsViewProps) {
   const stats = getMonthStats(selectedMonth, selectedYear);
   const report = getMonthReport(selectedMonth, selectedYear);
   const paymentStatusData = [
-    { name: 'Pagadas', value: stats.cuotasPagadas, color: '#5c3585' },
-    { name: 'Pendientes', value: stats.cuotasPendientes, color: '#ff9e32' },
+    { name: 'Pagadas', value: stats.cuotasPagadas, color: '#6b4492' },
+    { name: 'Pendientes', value: stats.cuotasPendientes, color: '#e59a3a' },
   ];
   const monthlyTrendData = Array.from({ length: 12 }, (_, index) => {
     const period = new Date(selectedYear, selectedMonth - 11 + index, 1);
@@ -825,7 +829,7 @@ export default function StatsView({ showReport = false }: StatsViewProps) {
           <section aria-label="Gráficos de estadísticas" className="grid min-w-0 gap-4 xl:grid-cols-[1.35fr_0.65fr]">
             <Card className="vh-panel-enter min-w-0 overflow-hidden border-[#d9ddd9] bg-[#fffefb] shadow-sm">
               <CardHeader className="border-b border-[#e9ebe7] pb-4">
-                <CardTitle className="text-lg text-[#33204f]">Ingresos de los últimos 12 meses</CardTitle>
+                <CardTitle className="text-lg text-[#312144]">Ingresos de los últimos 12 meses</CardTitle>
                 <CardDescription>Montos proyectados e ingresados, expresados en soles.</CardDescription>
               </CardHeader>
               <CardContent className="pt-6">
@@ -847,14 +851,14 @@ export default function StatsView({ showReport = false }: StatsViewProps) {
                       <Tooltip
                         formatter={(value, name) => [formatCurrency(Number(value)), name === 'proyectado' ? 'Proyectado' : 'Ingresado']}
                         contentStyle={{ borderRadius: 12, borderColor: '#d9ddd9', background: '#fffefb', boxShadow: '0 12px 30px rgba(21,40,77,.12)' }}
-                        labelStyle={{ color: '#33204f', fontWeight: 600 }}
+                        labelStyle={{ color: '#312144', fontWeight: 600 }}
                       />
                       <Legend wrapperStyle={{ color: '#5f6878', fontSize: 12, paddingTop: 12 }} />
                       <Line
                         type="monotone"
                         dataKey="proyectado"
                         name="Proyectado"
-                        stroke="#33204f"
+                        stroke="#312144"
                         strokeWidth={2.5}
                         strokeDasharray="6 5"
                         dot={{ r: 3, fill: '#fffefb', strokeWidth: 2 }}
@@ -866,9 +870,9 @@ export default function StatsView({ showReport = false }: StatsViewProps) {
                         type="monotone"
                         dataKey="ingresado"
                         name="Ingresado"
-                        stroke="#5c3585"
+                        stroke="#6b4492"
                         strokeWidth={3}
-                        dot={{ r: 3, fill: '#5c3585', strokeWidth: 0 }}
+                        dot={{ r: 3, fill: '#6b4492', strokeWidth: 0 }}
                         activeDot={{ r: 5 }}
                         isAnimationActive={!shouldReduceMotion}
                         animationDuration={900}
@@ -881,7 +885,7 @@ export default function StatsView({ showReport = false }: StatsViewProps) {
 
             <Card className="vh-panel-enter min-w-0 overflow-hidden border-[#d9ddd9] bg-[#fffefb] shadow-sm" style={{ animationDelay: '90ms' }}>
               <CardHeader className="border-b border-[#e9ebe7] pb-4">
-                <CardTitle className="text-lg text-[#33204f]">Estado de las cuotas</CardTitle>
+                <CardTitle className="text-lg text-[#312144]">Estado de las cuotas</CardTitle>
                 <CardDescription>{monthNames[selectedMonth]} {selectedYear} · cantidad de cuotas.</CardDescription>
               </CardHeader>
               <CardContent className="pt-6">
@@ -907,7 +911,7 @@ export default function StatsView({ showReport = false }: StatsViewProps) {
                         animationDuration={750}
                       >
                         {paymentStatusData.map(item => <Cell key={item.name} fill={item.color} />)}
-                        <LabelList dataKey="value" position="top" fill="#33204f" fontSize={12} fontWeight={600} />
+                        <LabelList dataKey="value" position="top" fill="#312144" fontSize={12} fontWeight={600} />
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>

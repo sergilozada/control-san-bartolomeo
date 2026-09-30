@@ -30,6 +30,7 @@ interface ClientRegistrationDialogProps {
 interface FormData {
   celular: string;
   email: string;
+  bloque: string;
   manzana: string;
   lote: string;
   metraje: string;
@@ -50,6 +51,7 @@ export default function ClientRegistrationDialog({ onClose, onSave }: ClientRegi
   const [formData, setFormData] = useState<FormData>({
     celular: '',
     email: '',
+    bloque: '',
     manzana: '',
     lote: '',
     metraje: '',
@@ -83,7 +85,7 @@ export default function ClientRegistrationDialog({ onClose, onSave }: ClientRegi
       return;
     }
 
-    if (!formData.manzana.trim() || !formData.lote.trim() || !formData.montoTotal || !formData.formaPago) {
+    if (!formData.bloque.trim() || !formData.manzana.trim() || !formData.lote.trim() || !formData.montoTotal || !formData.formaPago) {
       toast.error('Completa los datos obligatorios de la propiedad y el pago');
       return;
     }
@@ -109,6 +111,7 @@ export default function ClientRegistrationDialog({ onClose, onSave }: ClientRegi
       dni2: selectedTitulares[1]?.dni || undefined,
       celular1: formData.celular.trim() || undefined,
       email1: formData.email.trim() || undefined,
+      bloque: formData.bloque.trim(),
       manzana: formData.manzana.trim(),
       lote: formData.lote.trim(),
       metraje: Number.parseFloat(formData.metraje) || 0,
@@ -125,7 +128,7 @@ export default function ClientRegistrationDialog({ onClose, onSave }: ClientRegi
         toast.success(`${numeroTitulares === 1 ? 'Cliente registrado' : `${numeroTitulares} titulares registrados`} exitosamente`);
         onClose();
       } else {
-        toast.error('Ya existe un registro con esa manzana y lote');
+        toast.error('Ya existe un registro con ese bloque, manzana y lote');
       }
     } catch (error) {
       console.error('Error al registrar cliente:', error);
@@ -145,7 +148,7 @@ export default function ClientRegistrationDialog({ onClose, onSave }: ClientRegi
                 <UsersRound className="h-5 w-5" aria-hidden="true" />
               </div>
               <div>
-                <DialogTitle className="brand-display text-2xl font-semibold text-[#33204f]">Nuevo registro</DialogTitle>
+                <DialogTitle className="brand-display text-2xl font-semibold text-[#312144]">Nuevo registro</DialogTitle>
                 <DialogDescription className="mt-1 max-w-2xl leading-5 text-[#697386]">
                   Registra de 1 a 10 titulares. El contacto, la propiedad y las condiciones de pago serán compartidos.
                 </DialogDescription>
@@ -156,15 +159,15 @@ export default function ClientRegistrationDialog({ onClose, onSave }: ClientRegi
           <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-7 sm:py-6">
             <div className="space-y-7">
               <section aria-labelledby="titulares-heading" className="space-y-4">
-                <div className="grid gap-4 rounded-2xl border border-[#bfe4df] bg-[#f1faf8] p-4 sm:grid-cols-[minmax(0,1fr)_220px] sm:items-end sm:p-5">
+                <div className="grid gap-4 rounded-2xl border border-[#dec9ef] bg-[#f1faf8] p-4 sm:grid-cols-[minmax(0,1fr)_220px] sm:items-end sm:p-5">
                   <div>
-                    <h2 id="titulares-heading" className="text-base font-semibold text-[#33204f]">Titulares del registro</h2>
+                    <h2 id="titulares-heading" className="text-base font-semibold text-[#312144]">Titulares del registro</h2>
                     <p className="mt-1 text-sm leading-5 text-[#5f6878]">Selecciona cuántas personas aparecerán como propietarias del mismo lote.</p>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="numero-titulares" className="text-[#33204f]">Cantidad de titulares *</Label>
+                    <Label htmlFor="numero-titulares" className="text-[#312144]">Cantidad de titulares *</Label>
                     <Select value={String(numeroTitulares)} onValueChange={value => setNumeroTitulares(Number(value))}>
-                      <SelectTrigger id="numero-titulares" className="min-h-11 border-[#91c9c4] bg-white focus:ring-[#5c3585]" aria-label="Cantidad de titulares">
+                      <SelectTrigger id="numero-titulares" className="min-h-11 border-[#91c9c4] bg-white focus:ring-[#6b4492]" aria-label="Cantidad de titulares">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -180,11 +183,11 @@ export default function ClientRegistrationDialog({ onClose, onSave }: ClientRegi
                   {titulares.slice(0, numeroTitulares).map((titular, index) => (
                     <article key={index} className="rounded-2xl border border-[#d9ddd9] bg-white p-4 shadow-sm sm:p-5" aria-labelledby={`titular-${index + 1}-heading`}>
                       <div className="mb-4 flex items-center gap-3">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#f2ebf7] text-[#54317f]" aria-hidden="true">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#f3eaf9] text-[#54317f]" aria-hidden="true">
                           <UserRound className="h-4 w-4" />
                         </div>
                         <div>
-                          <h3 id={`titular-${index + 1}-heading`} className="text-sm font-semibold text-[#33204f]">Titular {index + 1}</h3>
+                          <h3 id={`titular-${index + 1}-heading`} className="text-sm font-semibold text-[#312144]">Titular {index + 1}</h3>
                           <p className="text-xs text-[#697386]">Nombre completo y documento</p>
                         </div>
                       </div>
@@ -197,7 +200,7 @@ export default function ClientRegistrationDialog({ onClose, onSave }: ClientRegi
                             onChange={event => handleTitularChange(index, 'nombre', event.target.value)}
                             placeholder="Nombres y apellidos"
                             autoComplete={index === 0 ? 'name' : 'off'}
-                            className="min-h-11 focus-visible:ring-[#5c3585]"
+                            className="min-h-11 focus-visible:ring-[#6b4492]"
                             required
                           />
                         </div>
@@ -210,7 +213,7 @@ export default function ClientRegistrationDialog({ onClose, onSave }: ClientRegi
                             placeholder="Documento"
                             inputMode="numeric"
                             autoComplete="off"
-                            className="min-h-11 focus-visible:ring-[#5c3585]"
+                            className="min-h-11 focus-visible:ring-[#6b4492]"
                             required
                           />
                         </div>
@@ -222,11 +225,11 @@ export default function ClientRegistrationDialog({ onClose, onSave }: ClientRegi
 
               <section aria-labelledby="contacto-heading" className="space-y-4 border-t border-[#e4e7e2] pt-6">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#eef1f5] text-[#33204f]">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#eef1f5] text-[#312144]">
                     <Phone className="h-4 w-4" aria-hidden="true" />
                   </div>
                   <div>
-                    <h2 id="contacto-heading" className="text-base font-semibold text-[#33204f]">Contacto compartido</h2>
+                    <h2 id="contacto-heading" className="text-base font-semibold text-[#312144]">Contacto compartido</h2>
                     <p className="text-sm text-[#697386]">Un celular y un email para todos los titulares.</p>
                   </div>
                 </div>
@@ -235,14 +238,14 @@ export default function ClientRegistrationDialog({ onClose, onSave }: ClientRegi
                     <Label htmlFor="celular">Celular</Label>
                     <div className="relative">
                       <Phone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8b927f]" aria-hidden="true" />
-                      <Input id="celular" type="tel" inputMode="tel" autoComplete="tel" value={formData.celular} onChange={event => handleInputChange('celular', event.target.value)} placeholder="Número de contacto" className="min-h-11 pl-10 focus-visible:ring-[#5c3585]" />
+                      <Input id="celular" type="tel" inputMode="tel" autoComplete="tel" value={formData.celular} onChange={event => handleInputChange('celular', event.target.value)} placeholder="Número de contacto" className="min-h-11 pl-10 focus-visible:ring-[#6b4492]" />
                     </div>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="email">Email</Label>
                     <div className="relative">
                       <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8b927f]" aria-hidden="true" />
-                      <Input id="email" type="email" inputMode="email" autoComplete="email" value={formData.email} onChange={event => handleInputChange('email', event.target.value)} placeholder="correo@ejemplo.com" className="min-h-11 pl-10 focus-visible:ring-[#5c3585]" />
+                      <Input id="email" type="email" inputMode="email" autoComplete="email" value={formData.email} onChange={event => handleInputChange('email', event.target.value)} placeholder="correo@ejemplo.com" className="min-h-11 pl-10 focus-visible:ring-[#6b4492]" />
                     </div>
                   </div>
                 </div>
@@ -250,26 +253,38 @@ export default function ClientRegistrationDialog({ onClose, onSave }: ClientRegi
 
               <section aria-labelledby="propiedad-heading" className="space-y-4 border-t border-[#e4e7e2] pt-6">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#eef1f5] text-[#33204f]">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#eef1f5] text-[#312144]">
                     <Building2 className="h-4 w-4" aria-hidden="true" />
                   </div>
                   <div>
-                    <h2 id="propiedad-heading" className="text-base font-semibold text-[#33204f]">Propiedad compartida</h2>
+                    <h2 id="propiedad-heading" className="text-base font-semibold text-[#312144]">Propiedad compartida</h2>
                     <p className="text-sm text-[#697386]">Datos únicos del lote para este registro.</p>
                   </div>
+                </div>
+                <div className="max-w-xs space-y-2">
+                  <Label htmlFor="bloque">Bloque *</Label>
+                  <Input
+                    id="bloque"
+                    value={formData.bloque}
+                    onChange={event => handleInputChange('bloque', event.target.value.replace(/[^\p{L}\p{N}]/gu, ''))}
+                    placeholder="Ej. A1"
+                    autoComplete="off"
+                    className="min-h-11 focus-visible:ring-[#6b4492]"
+                    required
+                  />
                 </div>
                 <div className="grid gap-4 sm:grid-cols-3">
                   <div className="space-y-2">
                     <Label htmlFor="manzana">Manzana *</Label>
-                    <Input id="manzana" value={formData.manzana} onChange={event => handleInputChange('manzana', event.target.value)} placeholder="Ej. A" className="min-h-11 focus-visible:ring-[#5c3585]" required />
+                    <Input id="manzana" value={formData.manzana} onChange={event => handleInputChange('manzana', event.target.value)} placeholder="Ej. A" className="min-h-11 focus-visible:ring-[#6b4492]" required />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="lote">Lote *</Label>
-                    <Input id="lote" value={formData.lote} onChange={event => handleInputChange('lote', event.target.value)} placeholder="Ej. 12" className="min-h-11 focus-visible:ring-[#5c3585]" required />
+                    <Input id="lote" value={formData.lote} onChange={event => handleInputChange('lote', event.target.value)} placeholder="Ej. 12" className="min-h-11 focus-visible:ring-[#6b4492]" required />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="metraje">Metraje (m²)</Label>
-                    <Input id="metraje" type="number" min="0" step="0.01" inputMode="decimal" value={formData.metraje} onChange={event => handleInputChange('metraje', event.target.value)} placeholder="0.00" className="min-h-11 focus-visible:ring-[#5c3585]" />
+                    <Input id="metraje" type="number" min="0" step="0.01" inputMode="decimal" value={formData.metraje} onChange={event => handleInputChange('metraje', event.target.value)} placeholder="0.00" className="min-h-11 focus-visible:ring-[#6b4492]" />
                   </div>
                 </div>
               </section>
@@ -280,19 +295,19 @@ export default function ClientRegistrationDialog({ onClose, onSave }: ClientRegi
                     <WalletCards className="h-4 w-4" aria-hidden="true" />
                   </div>
                   <div>
-                    <h2 id="pago-heading" className="text-base font-semibold text-[#33204f]">Condiciones de pago</h2>
+                    <h2 id="pago-heading" className="text-base font-semibold text-[#312144]">Condiciones de pago</h2>
                     <p className="text-sm text-[#697386]">El monto, la forma de pago y las cuotas aplican a todo el registro.</p>
                   </div>
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                   <div className="space-y-2">
                     <Label htmlFor="monto-total">Monto total *</Label>
-                    <Input id="monto-total" type="number" min="0.01" step="0.01" inputMode="decimal" value={formData.montoTotal} onChange={event => handleInputChange('montoTotal', event.target.value)} placeholder="S/ 0.00" className="min-h-11 focus-visible:ring-[#5c3585]" required />
+                    <Input id="monto-total" type="number" min="0.01" step="0.01" inputMode="decimal" value={formData.montoTotal} onChange={event => handleInputChange('montoTotal', event.target.value)} placeholder="S/ 0.00" className="min-h-11 focus-visible:ring-[#6b4492]" required />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="forma-pago">Forma de pago *</Label>
                     <Select value={formData.formaPago} onValueChange={value => handleInputChange('formaPago', value)}>
-                      <SelectTrigger id="forma-pago" className="min-h-11 focus:ring-[#5c3585]" aria-label="Forma de pago">
+                      <SelectTrigger id="forma-pago" className="min-h-11 focus:ring-[#6b4492]" aria-label="Forma de pago">
                         <SelectValue placeholder="Seleccionar" />
                       </SelectTrigger>
                       <SelectContent>
@@ -303,12 +318,12 @@ export default function ClientRegistrationDialog({ onClose, onSave }: ClientRegi
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="numero-cuotas">Número de cuotas *</Label>
-                    <Input id="numero-cuotas" type="number" min="1" step="1" inputMode="numeric" value={formData.numeroCuotas} onChange={event => handleInputChange('numeroCuotas', event.target.value)} placeholder="Ej. 24" className="min-h-11 focus-visible:ring-[#5c3585]" required />
+                    <Input id="numero-cuotas" type="number" min="1" step="1" inputMode="numeric" value={formData.numeroCuotas} onChange={event => handleInputChange('numeroCuotas', event.target.value)} placeholder="Ej. 24" className="min-h-11 focus-visible:ring-[#6b4492]" required />
                   </div>
                   {formData.formaPago === 'cuotas' && (
                     <div className="space-y-2">
                       <Label htmlFor="inicial">Inicial *</Label>
-                      <Input id="inicial" type="number" min="0" step="0.01" inputMode="decimal" value={formData.inicial} onChange={event => handleInputChange('inicial', event.target.value)} placeholder="S/ 0.00" className="min-h-11 focus-visible:ring-[#5c3585]" required />
+                      <Input id="inicial" type="number" min="0" step="0.01" inputMode="decimal" value={formData.inicial} onChange={event => handleInputChange('inicial', event.target.value)} placeholder="S/ 0.00" className="min-h-11 focus-visible:ring-[#6b4492]" required />
                     </div>
                   )}
                 </div>

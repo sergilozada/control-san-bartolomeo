@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { collection, limit, onSnapshot, orderBy, query, type Timestamp } from 'firebase/firestore';
-import { db } from '@/services/firebase';
+import { projectCollection } from '@/services/firebase';
 import { useAuth } from '@/context/FirebaseAuthContext';
 import { getClientDisplayName } from '@/types/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -33,7 +33,7 @@ export default function AuditLog() {
   useEffect(() => {
     if (preview) return;
     return onSnapshot(
-    query(collection(db, 'auditLogs'), orderBy('createdAt', 'desc'), limit(100)),
+    query(projectCollection('auditLogs'), orderBy('createdAt', 'desc'), limit(100)),
     snapshot => setEntries(snapshot.docs.map(item => ({ id: item.id, ...item.data() } as Entry))),
     () => setError('No se pudo cargar el historial. Revisa los permisos de administrador.'),
     );

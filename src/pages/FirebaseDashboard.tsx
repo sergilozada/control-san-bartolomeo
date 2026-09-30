@@ -34,8 +34,10 @@ import StaffUsers from '@/components/StaffUsers';
 import type { Titular } from '@/types/client';
 import { getClientDisplayDnis, getClientDisplayName } from '@/types/client';
 import { canManageClients, canManageMinutes, canRegisterPayments, canViewAnalytics, roleLabel, type UserRole } from '@/config/permissions';
+import { isStorageEnabled } from '@/services/firebase';
+import { needsFinancialReview, type ImportedClientSource } from '@/lib/importedClients';
 
-interface Client {
+interface Client extends ImportedClientSource {
   id: string;
   titulares?: Titular[];
   nombre1: string;
@@ -46,6 +48,7 @@ interface Client {
   celular2?: string;
   email1?: string;
   email2?: string;
+  bloque?: string;
   manzana: string;
   lote: string;
   metraje: number;
@@ -136,6 +139,7 @@ export default function FirebaseDashboard({ demo = false }: { demo?: boolean }) 
   });
 
   const getClientStatus = (client: Client) => {
+    if (needsFinancialReview(client)) return 'Revisar pagos';
     if (!client.cuotas || client.cuotas.length === 0) return 'Sin cuotas';
     const paid = client.cuotas.filter(cuota => cuota.estado === 'pagado' && cuota.numero > 0).length;
     const total = client.cuotas.filter(cuota => cuota.numero > 0).length;
@@ -160,7 +164,7 @@ export default function FirebaseDashboard({ demo = false }: { demo?: boolean }) 
       value: clients.length,
       helper: 'Cartera total registrada',
       icon: Users,
-      iconClass: 'bg-[#f2ebf7] text-[#54317f]',
+      iconClass: 'bg-[#f3eaf9] text-[#54317f]',
       action: () => setActiveTab('clientes'),
     },
     {
@@ -182,11 +186,11 @@ export default function FirebaseDashboard({ demo = false }: { demo?: boolean }) 
   ];
 
   return (
-    <div className="vh-dashboard-shell sb-design-alt min-h-screen bg-[#f2f1ec] text-[#182033]">
+    <div className="vh-dashboard-shell san-design min-h-screen bg-[#f8f5fb] text-[#312144]">
       {demo && <div className="sb-demo-banner flex flex-wrap items-center justify-center gap-x-4 gap-y-2 bg-[#ffedcc] px-4 py-2 text-center text-sm font-medium text-[#69430d]">
         <span>Vista previa local · datos ficticios · los cambios no se guardan</span>
         <label className="flex items-center gap-2">Usuario de muestra
-          <select aria-label="Usuario de muestra" value={user?.role || 'admin'} onChange={event => { setPreviewRole?.(event.target.value as UserRole); setActiveTab('inicio'); }} className="rounded-xl border border-[#d2b97e] bg-white px-2 py-1 text-[#33204f]">
+          <select aria-label="Usuario de muestra" value={user?.role || 'admin'} onChange={event => { setPreviewRole?.(event.target.value as UserRole); setActiveTab('inicio'); }} className="rounded-xl border border-[#d2b97e] bg-white px-2 py-1 text-[#312144]">
             {(Object.keys(roleLabel) as UserRole[]).map(role => <option key={role} value={role}>{roleLabel[role]}</option>)}
           </select>
         </label>
@@ -199,22 +203,22 @@ export default function FirebaseDashboard({ demo = false }: { demo?: boolean }) 
             aria-label="Ir a Vista general"
             aria-current={activeTab === 'inicio' ? 'page' : undefined}
             title="Ir a Vista general"
-            className="group flex min-h-12 min-w-0 items-center gap-2 rounded-xl px-1.5 text-left transition-[background-color,transform] duration-200 hover:bg-[#f2ebf7]/70 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5c3585] focus-visible:ring-offset-2 motion-reduce:transform-none motion-reduce:transition-none sm:gap-3 sm:px-2"
+            className="group flex min-h-12 min-w-0 items-center gap-2 rounded-xl px-1.5 text-left transition-[background-color,transform] duration-200 hover:bg-[#f3eaf9]/70 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6b4492] focus-visible:ring-offset-2 motion-reduce:transform-none motion-reduce:transition-none sm:gap-3 sm:px-2"
           >
             <img
               src="/brand/san-bartolomeo-logo.jpeg"
               alt="San Bartolomeo Inmobiliaria"
-              className="h-11 w-32 shrink-0 rounded-lg border border-[#d9ddd9] bg-white object-cover object-center shadow-sm transition-transform duration-200 group-hover:scale-[1.025] motion-reduce:transform-none motion-reduce:transition-none sm:h-12 sm:w-40"
+              className="san-logo-reveal h-12 w-20 shrink-0 rounded-lg bg-white object-cover object-center shadow-sm transition-transform duration-200 group-hover:scale-[1.025] motion-reduce:transform-none motion-reduce:transition-none sm:w-24"
             />
             <div className="min-w-0">
-              <p className="hidden truncate text-sm font-semibold tracking-tight text-[#33204f] sm:block sm:text-base">
+              <p className="hidden truncate text-sm font-semibold tracking-tight text-[#312144] sm:block sm:text-base">
                 San Bartolomeo Inmobiliaria
               </p>
             </div>
           </button>
 
           <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-3">
-            <span className="inline-flex min-h-9 items-center gap-2 rounded-full border border-[#c7ddd9] bg-[#f7f2fb] px-2.5 text-xs font-semibold text-[#33204f] sm:px-3 sm:text-sm">
+            <span className="inline-flex min-h-9 items-center gap-2 rounded-full border border-[#c7ddd9] bg-[#f3f7ed] px-2.5 text-xs font-semibold text-[#312144] sm:px-3 sm:text-sm">
               <span className="h-2 w-2 rounded-full bg-[#54317f]" aria-hidden="true" />
               {user?.role ? roleLabel[user.role] : 'Usuario'}
             </span>
@@ -223,7 +227,7 @@ export default function FirebaseDashboard({ demo = false }: { demo?: boolean }) 
               size="sm"
               onClick={logout}
               aria-label="Cerrar sesión"
-              className="min-h-9 border-[#d9ddd9] bg-white px-2.5 text-[#33204f] transition-[border-color,background-color,color,transform,box-shadow] duration-200 hover:border-[#54317f] hover:bg-[#f7f2fb] hover:text-[#54317f] hover:shadow-sm active:scale-[0.98] motion-reduce:transform-none motion-reduce:transition-none sm:px-3"
+              className="min-h-9 border-[#d9ddd9] bg-white px-2.5 text-[#312144] transition-[border-color,background-color,color,transform,box-shadow] duration-200 hover:border-[#54317f] hover:bg-[#f3f7ed] hover:text-[#54317f] hover:shadow-sm active:scale-[0.98] motion-reduce:transform-none motion-reduce:transition-none sm:px-3"
             >
               <LogOut className="h-4 w-4" />
               <span>Cerrar sesión</span>
@@ -231,6 +235,8 @@ export default function FirebaseDashboard({ demo = false }: { demo?: boolean }) 
           </div>
         </div>
       </header>
+
+      {!isStorageEnabled && <div role="status" className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-xs text-amber-900 sm:text-sm">Los adjuntos de vouchers, boletas y minutas se habilitarán cuando Storage esté activo. Los borradores y registros siguen disponibles.</div>}
 
       <Tabs
         value={activeTab}
@@ -244,7 +250,7 @@ export default function FirebaseDashboard({ demo = false }: { demo?: boolean }) 
         <aside className={`vh-sidebar-enter border-b border-[#d9ddd9] bg-[#fffefb] py-3 transition-[padding] duration-300 motion-reduce:transition-none lg:sticky lg:top-16 lg:z-30 lg:flex lg:h-[calc(100vh-4rem)] lg:flex-col lg:border-b-0 lg:border-r lg:py-4 ${navigationOpen ? 'px-3 lg:px-3' : 'px-2 lg:px-2'}`}>
           <button
             type="button"
-            className={`vh-menu-button flex min-h-12 items-center rounded-xl border border-[#d9ddd9] bg-white py-2.5 text-left shadow-sm transition-[width,border-color,box-shadow,background-color] duration-300 motion-reduce:transition-none hover:border-[#b9c3bd] hover:bg-[#fffefb] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5c3585] focus-visible:ring-offset-2 ${navigationOpen ? 'w-full justify-between gap-3 px-3' : 'w-12 justify-center px-0'}`}
+            className={`vh-menu-button flex min-h-12 items-center rounded-xl border border-[#d9ddd9] bg-white py-2.5 text-left shadow-sm transition-[width,border-color,box-shadow,background-color] duration-300 motion-reduce:transition-none hover:border-[#b9c3bd] hover:bg-[#fffefb] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6b4492] focus-visible:ring-offset-2 ${navigationOpen ? 'w-full justify-between gap-3 px-3' : 'w-12 justify-center px-0'}`}
             data-open={navigationOpen}
             aria-expanded={navigationOpen}
             aria-controls="dashboard-navigation"
@@ -260,7 +266,7 @@ export default function FirebaseDashboard({ demo = false }: { demo?: boolean }) 
               {navigationOpen && (
                 <span className="min-w-0">
                   <span className="block text-[10px] font-semibold uppercase tracking-[0.14em] text-[#8b927f]">Navegación</span>
-                  <span className="block truncate text-sm font-semibold text-[#33204f]">{activeMenuItem.label}</span>
+                  <span className="block truncate text-sm font-semibold text-[#312144]">{activeMenuItem.label}</span>
                 </span>
               )}
             </span>
@@ -286,14 +292,14 @@ export default function FirebaseDashboard({ demo = false }: { demo?: boolean }) 
                       value={item.id}
                       aria-label={item.label}
                       title={!navigationOpen ? item.label : undefined}
-                      className={`group min-h-11 w-full rounded-xl border border-transparent py-2.5 text-[#5f6878] transition-[color,background-color,border-color,transform] duration-200 hover:translate-x-0.5 hover:bg-white/80 data-[state=active]:border-[#bfe4df] data-[state=active]:bg-[#f2ebf7] data-[state=active]:text-[#54317f] data-[state=active]:shadow-none motion-reduce:transform-none motion-reduce:transition-none ${navigationOpen ? 'justify-start gap-3 px-3' : 'justify-center px-0'}`}
+                      className={`san-nav-item group min-h-11 w-full rounded-xl border border-transparent py-2.5 text-[#526353] transition-[color,background-color,border-color,transform] duration-200 hover:translate-x-0.5 hover:bg-white/80 data-[state=active]:border-[#dec9ef] data-[state=active]:bg-[#f3eaf9] data-[state=active]:text-[#54317f] data-[state=active]:shadow-none motion-reduce:transform-none motion-reduce:transition-none ${navigationOpen ? 'justify-start gap-3 px-3' : 'justify-center px-0'}`}
                     >
                       <Icon className="h-4 w-4 shrink-0" />
                       {navigationOpen && (
                         <span className={item.description ? 'text-left' : 'text-center'}>
                           <span className={`block text-sm ${item.description ? 'font-medium' : 'font-semibold'}`}>{item.label}</span>
                           {item.description && (
-                            <span className="block text-xs font-normal text-[#5f6878] group-data-[state=active]:text-[#54317f]">{item.description}</span>
+                            <span className="san-nav-description block text-xs font-normal text-[#5f6878] group-data-[state=active]:text-[#54317f]">{item.description}</span>
                           )}
                         </span>
                       )}
@@ -306,15 +312,18 @@ export default function FirebaseDashboard({ demo = false }: { demo?: boolean }) 
         </aside>
 
         <main className="min-w-0 px-3 py-4 sm:px-4 lg:px-0 lg:py-5">
+          {clients.some(needsFinancialReview) && <p role="status" className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            {clients.filter(needsFinancialReview).length} clientes tienen pagos por revisar. Sus importes están excluidos de los indicadores de pagos, atrasos e ingresos hasta completar el cronograma en Clientes → Completar.
+          </p>}
           <TabsContent value="inicio" className="mt-0 space-y-4">
-            <section className="vh-hero-enter relative isolate min-h-[230px] overflow-hidden rounded-3xl bg-[#33204f] px-5 py-5 text-white shadow-xl shadow-[#33204f]/15 sm:px-6 sm:py-6">
-              <img src="/brand/san-bartolomeo-hero.jpeg" alt="Pórtico de ingreso de San Bartolomeo Inmobiliaria" className="vh-hero-image absolute inset-0 -z-20 h-full w-full object-cover object-center" />
-              <div className="absolute inset-0 -z-10 bg-gradient-to-r from-[#261838]/95 via-[#452968]/82 to-[#54317f]/35" aria-hidden="true" />
-              <div className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-[#5c3585] via-[#ff9e32] to-transparent" aria-hidden="true" />
+            <section className="vh-hero-enter relative isolate min-h-[230px] overflow-hidden rounded-3xl bg-[#312144] px-5 py-5 text-white shadow-xl shadow-[#312144]/15 sm:px-6 sm:py-6">
+              <div className="pointer-events-none absolute -right-10 -top-20 -z-10 h-80 w-80 rounded-full border border-white/15 bg-white/5" aria-hidden="true" />
+              <div className="pointer-events-none absolute -bottom-32 right-1/3 -z-10 h-64 w-64 rounded-full bg-[#e59a3a]/15 blur-3xl" aria-hidden="true" />
+              <div className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-[#714899] via-[#e59a3a] to-transparent" aria-hidden="true" />
               <div className="flex min-h-[174px] flex-col justify-between gap-4 sm:flex-row sm:items-end">
                 <div className="max-w-2xl">
-                  <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/15 bg-[#261838]/30 px-3 py-1 text-xs font-medium text-[#ead7fb] backdrop-blur-md">
-                    <span className="h-2 w-2 rounded-full bg-emerald-400" aria-hidden="true" />
+                  <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/15 bg-[#1b2c1f]/30 px-3 py-1 text-xs font-medium text-[#f7ebff] backdrop-blur-md">
+                    <span className="h-2 w-2 rounded-full bg-[#e8c477]" aria-hidden="true" />
                     Panel administrativo
                   </div>
                   <h1 className="brand-display text-3xl font-medium tracking-tight sm:text-4xl">San Bartolomeo Inmobiliaria</h1>
@@ -324,7 +333,7 @@ export default function FirebaseDashboard({ demo = false }: { demo?: boolean }) 
                 </div>
                 {canManageClients(user?.role) && <Button
                   size="lg"
-                  className="vh-primary-action min-h-11 bg-[#5c3585] text-white shadow-lg shadow-[#261838]/25 hover:bg-[#54317f]"
+                  className="vh-primary-action min-h-11 bg-[#6b4492] text-white shadow-lg shadow-[#1b2c1f]/25 hover:bg-[#54317f]"
                   onClick={() => setShowNewClient(true)}
                 >
                   <Plus className="h-4 w-4" />
@@ -343,16 +352,16 @@ export default function FirebaseDashboard({ demo = false }: { demo?: boolean }) 
                     key={stat.label}
                     type="button"
                     onClick={stat.action}
-                    className="vh-stat-enter group rounded-2xl border border-[#d9ddd9] bg-[#fffefb] p-4 text-left shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-[#b9c3bd] hover:shadow-lg hover:shadow-[#33204f]/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5c3585] focus-visible:ring-offset-2 motion-reduce:transform-none motion-reduce:transition-none"
+                    className="vh-stat-enter group rounded-2xl border border-[#d9ddd9] bg-[#fffefb] p-4 text-left shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-[#b9c3bd] hover:shadow-lg hover:shadow-[#312144]/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6b4492] focus-visible:ring-offset-2 motion-reduce:transform-none motion-reduce:transition-none"
                     style={{ animationDelay: `${120 + index * 70}ms` }}
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${stat.iconClass}`}>
                         <Icon className="h-5 w-5" />
                       </div>
-                      <ArrowUpRight className="h-4 w-4 text-[#b5bbb1] transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-[#5c3585] motion-reduce:transform-none" />
+                      <ArrowUpRight className="h-4 w-4 text-[#b5bbb1] transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-[#6b4492] motion-reduce:transform-none" />
                     </div>
-                    <p className="brand-display mt-5 text-3xl font-semibold tracking-tight text-[#33204f]">{stat.value}</p>
+                    <p className="brand-display mt-5 text-3xl font-semibold tracking-tight text-[#312144]">{stat.value}</p>
                     <p className="mt-1 text-sm font-medium text-[#182033]">{stat.label}</p>
                     <p className="mt-1 text-xs text-[#697386]">{stat.helper}</p>
                   </button>
@@ -363,7 +372,7 @@ export default function FirebaseDashboard({ demo = false }: { demo?: boolean }) 
             <Card className="vh-panel-enter overflow-hidden border-[#d9ddd9] bg-[#fffefb] shadow-sm" style={{ animationDelay: '300ms' }}>
               <CardHeader className="border-b border-[#e9ebe7] bg-[#fffefb] px-4 py-4 sm:px-5">
                 <div className="flex items-start gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#f2ebf7] text-[#54317f]">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#f3eaf9] text-[#54317f]">
                     <Search className="h-5 w-5" />
                   </div>
                   <div>
@@ -408,7 +417,7 @@ export default function FirebaseDashboard({ demo = false }: { demo?: boolean }) 
                 {showSearchResults && (
                   <div className="vh-soft-enter mt-6 border-t border-[#e9ebe7] pt-6" aria-live="polite">
                     <div className="mb-4 flex items-center justify-between gap-3">
-                      <h2 className="text-base font-semibold text-[#33204f]">Resultados</h2>
+                      <h2 className="text-base font-semibold text-[#312144]">Resultados</h2>
                       <Badge variant="secondary">{searchResults.length} encontrados</Badge>
                     </div>
                     {searchResults.length > 0 ? (
@@ -429,7 +438,7 @@ export default function FirebaseDashboard({ demo = false }: { demo?: boolean }) 
                               <TableRow key={client.id}>
                                 <TableCell className="max-w-72 font-medium text-[#182033]">{getClientDisplayName(client)}</TableCell>
                                 <TableCell className="max-w-52 text-[#5f6878]">{getClientDisplayDnis(client)}</TableCell>
-                                <TableCell>Mz. {client.manzana} · Lote {client.lote}</TableCell>
+                                <TableCell>{client.bloque ? `Bloque ${client.bloque} · ` : ''}Mz. {client.manzana} · Lote {client.lote}</TableCell>
                                 <TableCell>S/ {client.montoTotal.toFixed(2)}</TableCell>
                                 <TableCell><Badge variant="outline">{getClientStatus(client)}</Badge></TableCell>
                                 <TableCell>

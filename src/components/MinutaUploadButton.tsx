@@ -2,7 +2,7 @@ import { ChangeEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { ExternalLink, FileCheck2, FileText, Loader2, Trash2, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import { deleteObject, getDownloadURL, getMetadata, listAll, ref as storageRef, uploadBytes } from 'firebase/storage';
-import { storage } from '@/services/firebase';
+import { isStorageEnabled, projectStorageRoot, storage } from '@/services/firebase';
 import { useAuth } from '@/context/FirebaseAuthContext';
 import { updateClientWithAudit } from '@/services/audit';
 import { canManageMinutes } from '@/config/permissions';
@@ -59,10 +59,10 @@ export default function MinutaUploadButton({ clientId, clientName, onCreate }: M
   const [deleting, setDeleting] = useState(false);
 
   const loadMinutes = useCallback(async () => {
-    if (preview) { setMinutes([]); return; }
+    if (preview || !isStorageEnabled) { setMinutes([]); return; }
     setLoading(true);
     try {
-      const folder = storageRef(storage, `clients/${clientId}/minutas`);
+      const folder = storageRef(storage, `${projectStorageRoot}/clients/${clientId}/minutas`);
       const result = await listAll(folder);
       const items = await Promise.all(result.items.map(async (item) => {
         const [url, metadata] = await Promise.all([
@@ -111,7 +111,7 @@ export default function MinutaUploadButton({ clientId, clientName, onCreate }: M
     setUploading(true);
     try {
       const storedName = `${Date.now()}_${sanitizeFileName(file.name)}`;
-      const destination = storageRef(storage, `clients/${clientId}/minutas/${storedName}`);
+      const destination = storageRef(storage, `${projectStorageRoot}/clients/${clientId}/minutas/${storedName}`);
 
       await uploadBytes(destination, file, {
         contentType: file.type || undefined,
@@ -168,7 +168,7 @@ export default function MinutaUploadButton({ clientId, clientName, onCreate }: M
         <Button
           size="sm"
           variant="outline"
-          className="border-[#bfe4df] bg-[#f2ebf7] text-[#54317f] hover:bg-[#d9f0ec] hover:text-[#54317f]"
+          className="border-[#dec9ef] bg-[#f3eaf9] text-[#54317f] hover:bg-[#d9f0ec] hover:text-[#54317f]"
           aria-label={`Gestionar minuta de ${clientName}`}
         >
           <Upload className="h-4 w-4" />
@@ -181,9 +181,9 @@ export default function MinutaUploadButton({ clientId, clientName, onCreate }: M
           <div className="mb-2 flex h-11 w-11 items-center justify-center rounded-xl bg-[#54317f] text-white shadow-sm">
             <FileText className="h-5 w-5" />
           </div>
-          <DialogTitle className="text-xl text-[#33204f]">Minuta del cliente</DialogTitle>
+          <DialogTitle className="text-xl text-[#312144]">Minuta del cliente</DialogTitle>
           <DialogDescription className="text-sm leading-6 text-[#697386]">
-            {clientName}. Adjunta documentos PDF o Word sin modificar la información del cliente.
+            {clientName}. Crea un borrador de minuta y administra sus documentos adjuntos.
           </DialogDescription>
         </DialogHeader>
 
@@ -191,34 +191,35 @@ export default function MinutaUploadButton({ clientId, clientName, onCreate }: M
           {onCreate && <Button type="button" className="w-full bg-[#54317f] text-white" onClick={() => { setOpen(false); onCreate(clientId); }}>
             Crear borrador de minuta para este cliente
           </Button>}
-          <input
+          {!isStorageEnabled && <p role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">Los adjuntos estarán disponibles cuando se habilite Storage para este proyecto. La creación de borradores sigue disponible.</p>}
+          {isStorageEnabled && <input
             ref={inputRef}
             type="file"
             accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             className="sr-only"
             onChange={handleFileChange}
-          />
+          />}
 
-          {!preview && canManageMinutes(user?.role) && <button
+          {isStorageEnabled && !preview && canManageMinutes(user?.role) && <button
             type="button"
             onClick={() => inputRef.current?.click()}
             disabled={uploading}
-            className="flex min-h-32 w-full flex-col items-center justify-center rounded-2xl border border-dashed border-[#7bc7c5] bg-[#f2ebf7]/70 px-5 py-6 text-center transition-colors hover:border-[#5c3585] hover:bg-[#dff2ef] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5c3585] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+            className="flex min-h-32 w-full flex-col items-center justify-center rounded-2xl border border-dashed border-[#7bc7c5] bg-[#f3eaf9]/70 px-5 py-6 text-center transition-colors hover:border-[#6b4492] hover:bg-[#dff2ef] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6b4492] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {uploading ? (
               <Loader2 className="mb-3 h-7 w-7 animate-spin text-[#54317f]" />
             ) : (
               <Upload className="mb-3 h-7 w-7 text-[#54317f]" />
             )}
-            <span className="font-semibold text-[#33204f]">
+            <span className="font-semibold text-[#312144]">
               {uploading ? 'Subiendo minuta…' : 'Seleccionar minuta'}
             </span>
             <span className="mt-1 text-sm text-[#697386]">PDF, DOC o DOCX · máximo 15 MB</span>
           </button>}
 
-          <section aria-labelledby={`minutes-${clientId}`}>
+          {isStorageEnabled && <section aria-labelledby={`minutes-${clientId}`}>
             <div className="mb-3 flex items-center justify-between gap-3">
-              <h3 id={`minutes-${clientId}`} className="text-sm font-semibold text-[#33204f]">
+              <h3 id={`minutes-${clientId}`} className="text-sm font-semibold text-[#312144]">
                 Documentos disponibles
               </h3>
               {!loading && (
@@ -238,20 +239,20 @@ export default function MinutaUploadButton({ clientId, clientName, onCreate }: M
                 {minutes.map((minute) => (
                   <div
                     key={minute.path}
-                    className="group flex min-h-14 items-center gap-2 rounded-xl border border-[#d9ddd9] bg-white p-1.5 transition-colors hover:border-[#bfe4df] hover:bg-[#f2ebf7]/40"
+                    className="group flex min-h-14 items-center gap-2 rounded-xl border border-[#d9ddd9] bg-white p-1.5 transition-colors hover:border-[#dec9ef] hover:bg-[#f3eaf9]/40"
                   >
                     <a
                       href={minute.url}
                       target="_blank"
                       rel="noreferrer"
-                      className="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-lg px-2.5 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5c3585]"
+                      className="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-lg px-2.5 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6b4492]"
                       aria-label={`Abrir minuta ${minute.name}`}
                     >
                       <FileCheck2 className="h-5 w-5 shrink-0 text-emerald-600" />
                       <span className="min-w-0 flex-1 truncate text-sm font-medium text-[#182033]">
                         {minute.name}
                       </span>
-                      <ExternalLink className="h-4 w-4 shrink-0 text-[#9aa29a] group-hover:text-[#5c3585]" />
+                      <ExternalLink className="h-4 w-4 shrink-0 text-[#9aa29a] group-hover:text-[#6b4492]" />
                     </a>
                     {canManageMinutes(user?.role) && <Button
                       type="button"
@@ -272,7 +273,7 @@ export default function MinutaUploadButton({ clientId, clientName, onCreate }: M
                 Aún no hay minutas cargadas para este cliente.
               </div>
             )}
-          </section>
+          </section>}
         </div>
 
         <DialogFooter className="border-t border-[#e9ebe7] bg-[#f5f4ef]/80 px-6 py-4">
@@ -288,7 +289,7 @@ export default function MinutaUploadButton({ clientId, clientName, onCreate }: M
             <div className="mx-auto mb-2 flex h-11 w-11 items-center justify-center rounded-xl bg-rose-50 text-[#a63d45] sm:mx-0">
               <Trash2 className="h-5 w-5" />
             </div>
-            <AlertDialogTitle className="text-[#33204f]">¿Eliminar esta minuta?</AlertDialogTitle>
+            <AlertDialogTitle className="text-[#312144]">¿Eliminar esta minuta?</AlertDialogTitle>
             <AlertDialogDescription className="leading-6 text-[#697386]">
               {minuteToDelete?.name}. El documento se eliminará del almacenamiento y esta acción no se puede deshacer.
             </AlertDialogDescription>

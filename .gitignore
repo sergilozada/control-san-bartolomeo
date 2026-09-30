@@ -19,6 +19,7 @@ package-lock.json
 !functions/package-lock.json
 dist
 dist-ssr
+*.tsbuildinfo
 *.local
 
 # Editor directories and files

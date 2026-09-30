@@ -23,7 +23,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { BookOpen, Download, Edit, Eye, FileCheck2, FileText, Loader2, Trash2, Upload } from 'lucide-react';
 import { toast } from 'sonner';
-import { storage } from '@/services/firebase';
+import { isStorageEnabled, projectStorageRoot, storage } from '@/services/firebase';
 import { deleteObject, getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -32,6 +32,8 @@ import { getClientDisplayDnis, getClientDisplayName, getClientTitulares } from '
 import { canManageClients, canManageMinutes, canManageReceipts, canRegisterPayments } from '@/config/permissions';
 import MinutaUploadButton from '@/components/MinutaUploadButton';
 import { NoDebtCertificateButton, ResolutionDraftButton } from '@/components/ClientDocuments';
+import { monthEnd, needsFinancialReview, type ImportedClientSource } from '@/lib/importedClients';
+import ImportedClientReview from '@/components/ImportedClientReview';
 
 interface ClientListProps {
   filterType?: 'pending' | 'overdue' | 'all';
@@ -40,7 +42,7 @@ interface ClientListProps {
 
 type OverdueCountFilter = 'all' | '1' | '2' | '3' | '4' | '5' | '6';
 
-interface Client {
+interface Client extends ImportedClientSource {
   id: string;
   titulares?: Titular[];
   nombre1: string;
@@ -53,6 +55,7 @@ interface Client {
   email2?: string;
   observaciones?: string;
   observationEntries?: ObservationEntry[];
+  bloque?: string;
   manzana: string;
   lote: string;
   metraje: number;
@@ -139,6 +142,7 @@ export default function ClientList({ filterType = 'all', onCreateMinute }: Clien
     updateCuota,
     calculateMora,
     markCuotaAsPaid,
+    unmarkCuotaAsPaid,
     updateCuotaAmount,
     updateCuotaDates,
     selectedClientId,
@@ -165,17 +169,23 @@ export default function ClientList({ filterType = 'all', onCreateMinute }: Clien
   const [editingPhoneClientId, setEditingPhoneClientId] = useState<string | null>(null);
   const [editCelular1, setEditCelular1] = useState('');
   const [editCelular2, setEditCelular2] = useState('');
-  const [editingEmailClientId, setEditingEmailClientId] = useState<string | null>(null);
+  const [detailEditField, setDetailEditField] = useState<'nombre' | 'dni' | 'email' | null>(null);
+  const [editTitulares, setEditTitulares] = useState<Titular[]>([]);
   const [editEmail1, setEditEmail1] = useState('');
   const [editEmail2, setEditEmail2] = useState('');
+  const [savingDetail, setSavingDetail] = useState(false);
+  const [paymentConfirmation, setPaymentConfirmation] = useState<{ clientId: string; cuotaIndex: number; action: 'mark' | 'unmark' } | null>(null);
+  const [savingPayment, setSavingPayment] = useState(false);
   const [observationsClient, setObservationsClient] = useState<Client | null>(null);
   const [observationDraft, setObservationDraft] = useState('');
   const [savingObservation, setSavingObservation] = useState(false);
   const [attachmentManager, setAttachmentManager] = useState<AttachmentManagerState | null>(null);
   const [attachmentToDelete, setAttachmentToDelete] = useState<AttachmentDeleteState | null>(null);
   const [deletingAttachment, setDeletingAttachment] = useState(false);
+  const [deletingClientId, setDeletingClientId] = useState<string | null>(null);
 
   const openClientDetail = (client: Client) => {
+    setDetailEditField(null);
     setSelectedClient(client.id);
     setSelectedClientId(client.id);
   };
@@ -238,34 +248,34 @@ export default function ClientList({ filterType = 'all', onCreateMinute }: Clien
     }
   };
 
-  const startEmailEdit = (client: Client) => {
-    setEditingEmailClientId(client.id);
+  const startDetailEdit = (client: Client, field: 'nombre' | 'dni' | 'email') => {
+    setDetailEditField(field);
+    setEditTitulares(getClientTitulares(client));
     setEditEmail1(client.email1 || '');
     setEditEmail2(client.email2 || '');
   };
 
-  const cancelEmailEdit = () => {
-    setEditingEmailClientId(null);
-    setEditEmail1('');
-    setEditEmail2('');
-  };
-
-  const saveEmailEdit = async () => {
-    if (!editingEmailClientId) return;
-
-    const payload = {
-      email1: editEmail1.trim(),
-      email2: editEmail2.trim()
+  const saveDetailEdit = async (client: Client) => {
+    if (!detailEditField || savingDetail) return;
+    const titulares = editTitulares.map(titular => ({nombre:titular.nombre.trim(),dni:titular.dni.trim()}));
+    if (detailEditField === 'nombre' && titulares.some(titular => !titular.nombre)) {toast.error('Completa el nombre de cada titular.');return;}
+    if (detailEditField === 'dni' && titulares.some(titular => !/^\d{8}$/.test(titular.dni))) {toast.error('Cada DNI debe tener 8 dígitos.');return;}
+    const email1 = editEmail1.trim(), email2 = editEmail2.trim();
+    if (detailEditField === 'email' && [email1,email2].some(email => email && !/^\S+@[^\s@]+\.[^\s@]+$/.test(email))) {toast.error('Revisa el formato de los correos.');return;}
+    const payload = detailEditField === 'email' ? {email1,email2} : {
+      titulares,
+      nombre1:titulares[0]?.nombre || '',nombre2:titulares[1]?.nombre || '',
+      dni1:titulares[0]?.dni || '',dni2:titulares[1]?.dni || '',
     };
-
+    setSavingDetail(true);
     try {
-      await updateClient(editingEmailClientId, payload);
-      toast.success('Correos actualizados correctamente');
-      cancelEmailEdit();
+      await updateClient(client.id, payload);
+      toast.success('Datos del cliente actualizados.');
+      setDetailEditField(null);
     } catch (err) {
-      console.error('Error actualizando correos:', err);
-      toast.error('No se pudo actualizar los correos');
-    }
+      console.error('Error actualizando datos del cliente:', err);
+      toast.error('No se pudieron guardar los datos.');
+    } finally {setSavingDetail(false);}
   };
 
   const getOverdueInstallments = (client: Client) => {
@@ -313,13 +323,14 @@ export default function ClientList({ filterType = 'all', onCreateMinute }: Clien
   };
 
   const getClientStatus = (client: Client) => {
+    if (needsFinancialReview(client)) return 'Revisar pagos';
     if (!client.cuotas || client.cuotas.length === 0) return 'Sin cuotas';
     
     const cuotasPagadas = client.cuotas.filter((c: Cuota) => c.estado === 'pagado' && c.numero > 0).length;
     const totalCuotas = client.cuotas.filter((c: Cuota) => c.numero > 0).length;
     const cuotasPendientes = totalCuotas - cuotasPagadas;
     
-    if (cuotasPendientes === 0) return 'Completado';
+    if (cuotasPendientes === 0) return client.cuotas.some(c => c.estado !== 'pagado') ? 'Inicial pendiente' : 'Completado';
     return `Debe ${cuotasPendientes}`;
   };
 
@@ -327,10 +338,20 @@ export default function ClientList({ filterType = 'all', onCreateMinute }: Clien
     return getOverdueInstallments(client).length;
   };
 
-  const handleDeleteClient = (clientId: string) => {
-    if (window.confirm('¿Está seguro de que desea eliminar este cliente? Esta acción no se puede deshacer.')) {
-      deleteClient(clientId);
+  const handleDeleteClient = async (clientId: string) => {
+    if (deletingClientId || !window.confirm('¿Está seguro de que desea eliminar este cliente? Esta acción no se puede deshacer.')) return;
+
+    setDeletingClientId(clientId);
+    try {
+      await deleteClient(clientId);
       toast.success('Cliente eliminado exitosamente');
+    } catch (error) {
+      console.error('No se pudo eliminar el cliente:', error);
+      toast.error('No se eliminó el cliente.', {
+        description: error instanceof Error ? error.message : 'Firebase no confirmó el borrado. Inténtelo de nuevo.',
+      });
+    } finally {
+      setDeletingClientId(null);
     }
   };
 
@@ -418,31 +439,21 @@ export default function ClientList({ filterType = 'all', onCreateMinute }: Clien
       return;
     }
 
-    // Helper: add months preserving day-of-month where possible (cap to last day)
-    const addMonthsKeepingDay = (date: Date, months: number) => {
-      const y = date.getFullYear();
-      const m = date.getMonth();
-      const d = date.getDate();
-      const target = new Date(y, m + months, 1);
-      const lastDay = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
-      target.setDate(Math.min(d, lastDay));
-      return target;
-    };
-
     (async () => {
       try {
         const client = clients.find(c => c.id === editingCuota.clientId);
         if (!client || !client.cuotas) return;
 
         const cuotaIdx = editingCuota.cuotaIndex as number;
-        const baseISO = formatLocalISO(editFecha);
+        const chosenISO = formatLocalISO(editFecha);
+        const baseISO = client.formaPago === 'cuotas' && client.cuotas[cuotaIdx].numero > 0 ? monthEnd(chosenISO) : chosenISO;
 
         if (!propagateDates) {
           // Only update the single cuota
           await Promise.resolve(updateCuotaDates(editingCuota.clientId, cuotaIdx, baseISO));
         } else {
           // Update this cuota and all following cuotas.
-          // The selected cuota gets the exact date chosen by the user (baseISO).
+          // Initial payments keep their date; regular installments use month end.
           // All subsequent cuotas should use the LAST DAY of each successive month.
           const baseDate = parseLocalDate(baseISO);
           const updatedCuotas = client.cuotas.map((c, idx) => {
@@ -474,14 +485,24 @@ export default function ClientList({ filterType = 'all', onCreateMinute }: Clien
     })();
   };
 
-  const handleMarkAsPaid = async (clientId: string, cuotaIndex: number) => {
+  const confirmPaymentChange = async () => {
+    if (!paymentConfirmation || savingPayment) return;
+    const {clientId,cuotaIndex,action}=paymentConfirmation;
+    setSavingPayment(true);
     try {
-      await markCuotaAsPaid(clientId, cuotaIndex, paymentDate);
-      toast.success('Cuota marcada como pagada');
+      if (action === 'mark') {
+        if (!paymentDate) throw new Error('Selecciona la fecha de pago.');
+        await markCuotaAsPaid(clientId, cuotaIndex, paymentDate);
+        toast.success('Cuota marcada como pagada.');
+      } else {
+        await unmarkCuotaAsPaid(clientId, cuotaIndex);
+        toast.success('Pago desmarcado. La cuota está pendiente.');
+      }
+      setPaymentConfirmation(null);
     } catch (error) {
       console.error(error);
-      toast.error('No se pudo registrar el pago');
-    }
+      toast.error(error instanceof Error ? error.message : 'No se pudo actualizar el pago.');
+    } finally {setSavingPayment(false);}
   };
 
   const handleFileUpload = (clientId: string, cuotaIndex: number, fileType: 'voucher' | 'boleta') => {
@@ -505,7 +526,7 @@ export default function ClientList({ filterType = 'all', onCreateMinute }: Clien
             // Append a short unique suffix to the stored file name to avoid collisions in Storage
             const uniqueCode = `${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
             const finalName = `${baseName}_${uniqueCode}${ext}`;
-            const path = `clients/${clientId}/cuotas/${cuotaIndex}/${fileType}/${finalName}`;
+            const path = `${projectStorageRoot}/clients/${clientId}/cuotas/${cuotaIndex}/${fileType}/${finalName}`;
             const sRef = storageRef(storage, path);
             // upload as bytes
             const snapshot = await uploadBytes(sRef, file);
@@ -662,7 +683,7 @@ export default function ClientList({ filterType = 'all', onCreateMinute }: Clien
           storage,
           attachmentToDelete.attachment.path || attachmentToDelete.attachment.url,
         );
-        const expectedPrefix = `clients/${client.id}/cuotas/${attachmentToDelete.cuotaIndex}/${attachmentToDelete.fileType}/`;
+        const expectedPrefix = `${projectStorageRoot}/clients/${client.id}/cuotas/${attachmentToDelete.cuotaIndex}/${attachmentToDelete.fileType}/`;
 
         if (attachmentRef.fullPath.startsWith(expectedPrefix)) {
           await deleteObject(attachmentRef);
@@ -770,8 +791,7 @@ export default function ClientList({ filterType = 'all', onCreateMinute }: Clien
         logoData = scheduleConfig.logoUrls.map(() => null);
       }
 
-      // The legacy layout remains untouched for existing clients. New clients
-      // receive A&T first (left), followed by San Bartolomeo Inmobiliaria (right).
+      // El cronograma de este proyecto usa solamente su propia marca.
       let titleY = 20;
       if (scheduleConfig.logoLayout === 'paired-square') {
         const logoSize = 46;
@@ -794,9 +814,9 @@ export default function ClientList({ filterType = 'all', onCreateMinute }: Clien
       } else if (logoData[0]) {
         try {
           const imgProps = doc.getImageProperties(logoData[0]);
-          const imgW = pageWidth - 20; // 10mm margin each side
+          const imgW = 42;
           const imgH = (imgProps.height * imgW) / imgProps.width;
-          doc.addImage(logoData[0], 'JPEG', 10, 6, imgW, imgH);
+          doc.addImage(logoData[0], 'JPEG', (pageWidth - imgW) / 2, 6, imgW, imgH);
           titleY = 6 + imgH + 6;
         } catch (err) {
           console.error('Error adding logo to PDF:', err);
@@ -814,7 +834,7 @@ export default function ClientList({ filterType = 'all', onCreateMinute }: Clien
       doc.setFillColor(255, 205, 0);
       doc.rect(20, contactY - 4, pageWidth - 40, 6, 'F');
       doc.setTextColor(0);
-      doc.text(`Telefono de cobranza San Bartolomeo: ${scheduleConfig.cobranzaPhone}`, 25, contactY);
+      doc.text(`Telefono de cobranza San Bartolomeo Inmobiliaria: ${scheduleConfig.cobranzaPhone}`, 25, contactY);
 
   // Client info block (left) and bank info block (right)
       const infoStartY = contactY + 8;
@@ -837,6 +857,7 @@ export default function ClientList({ filterType = 'all', onCreateMinute }: Clien
     doc.text(`Precio total: S/ ${client.montoTotal.toFixed(2)}`, leftX, yInfo); yInfo += infoLineHeight;
     doc.text(`Moneda: SOLES`, leftX, yInfo); yInfo += infoLineHeight;
     doc.text(`Proyecto: ${scheduleConfig.projectName}`, leftX, yInfo); yInfo += infoLineHeight;
+    if (client.bloque) { doc.text(`Bloque: ${client.bloque}`, leftX, yInfo); yInfo += infoLineHeight; }
     doc.text(`Manzana: ${client.manzana}`, leftX, yInfo); yInfo += infoLineHeight;
     doc.text(`Lote: ${client.lote}`, leftX, yInfo); yInfo += infoLineHeight;
     doc.text(`Metraje: ${client.metraje} m2`, leftX, yInfo); yInfo += infoLineHeight;
@@ -1048,10 +1069,10 @@ export default function ClientList({ filterType = 'all', onCreateMinute }: Clien
             <td width="50%" align="right" style="padding-right:19px;">${rightLogo}</td>
           </tr></table>`;
         } else if (logoData[0]) {
-          headerHtml += `<img src="${logoData[0]}" style="width:100%;height:auto;"/>`;
+          headerHtml += `<img src="${logoData[0]}" style="display:block;width:160px;height:160px;object-fit:contain;margin:0 auto;"/>`;
         }
         headerHtml += '<h2>CRONOGRAMA DE PAGOS</h2>';
-        headerHtml += `<div style="background:#ffd700;padding:4px;margin-bottom:6px;">Telefono de cobranza San Bartolomeo: ${scheduleConfig.cobranzaPhone}</div>`;
+        headerHtml += `<div style="background:#ffd700;padding:4px;margin-bottom:6px;">Telefono de cobranza San Bartolomeo Inmobiliaria: ${scheduleConfig.cobranzaPhone}</div>`;
         headerHtml += '</div>';
 
         let infoHtml = '<table style="width:100%;border-collapse:collapse;margin-bottom:8px;"><tr>';
@@ -1062,11 +1083,12 @@ export default function ClientList({ filterType = 'all', onCreateMinute }: Clien
         });
         infoHtml += `<tr><td><strong>Celular 1</strong></td><td>${client.celular1 || ''}</td></tr>`;
         if (client.celular2) infoHtml += `<tr><td><strong>Celular 2</strong></td><td>${client.celular2}</td></tr>`;
-        infoHtml += `<tr><td><strong>Gmail 1</strong></td><td>${client.email1 || ''}</td></tr>`;
-        if (client.email2) infoHtml += `<tr><td><strong>Gmail 2</strong></td><td>${client.email2}</td></tr>`;
+        infoHtml += `<tr><td><strong>Correo 1</strong></td><td>${client.email1 || ''}</td></tr>`;
+        if (client.email2) infoHtml += `<tr><td><strong>Correo 2</strong></td><td>${client.email2}</td></tr>`;
         infoHtml += `<tr><td><strong>Precio total</strong></td><td>S/ ${client.montoTotal.toFixed(2)}</td></tr>`;
         infoHtml += '<tr><td><strong>Moneda</strong></td><td>SOLES</td></tr>';
         infoHtml += `<tr><td><strong>Proyecto</strong></td><td>${scheduleConfig.projectName}</td></tr>`;
+        if (client.bloque) infoHtml += `<tr><td><strong>Bloque</strong></td><td>${client.bloque}</td></tr>`;
         infoHtml += `<tr><td><strong>Manzana</strong></td><td>${client.manzana}</td></tr>`;
         infoHtml += `<tr><td><strong>Lote</strong></td><td>${client.lote}</td></tr>`;
         infoHtml += `<tr><td><strong>Metraje</strong></td><td>${client.metraje} m2</td></tr>`;
@@ -1151,8 +1173,8 @@ export default function ClientList({ filterType = 'all', onCreateMinute }: Clien
   };
 
   const getClientPaymentTotals = (client: Client) => {
-    // Las ventas al contado representan pagos completos, aunque no tengan cronograma.
-    if (client.formaPago === 'contado') {
+    // Los registros importados solo cuentan como pagados cuando se registra el pago.
+    if (client.formaPago === 'contado' && !client.importReview) {
       return {
         totalPagado: Number(client.montoTotal || 0),
         totalPendiente: 0
@@ -1300,6 +1322,7 @@ export default function ClientList({ filterType = 'all', onCreateMinute }: Clien
       const cashClients = filteredClients.filter(client => client.formaPago === 'contado');
 
       const calculateGroupTotals = (group: Client[]) => group.reduce((acc, client) => {
+        if (needsFinancialReview(client)) return acc;
         const paymentTotals = getClientPaymentTotals(client);
         acc.montoTotal += Number(client.montoTotal || 0);
         acc.pagado += paymentTotals.totalPagado;
@@ -1343,10 +1366,10 @@ export default function ClientList({ filterType = 'all', onCreateMinute }: Clien
             client.manzana,
             client.lote,
             `${Number(client.metraje || 0).toFixed(2)} m2`,
-            money(client.montoTotal),
-            client.numeroCuotas || 0,
-            money(paymentTotals.totalPagado),
-            money(paymentTotals.totalPendiente)
+            client.montoTotal > 0 ? money(client.montoTotal) : 'Por completar',
+            client.numeroCuotas || 'Por completar',
+            needsFinancialReview(client) ? 'Por revisar' : money(paymentTotals.totalPagado),
+            needsFinancialReview(client) ? 'Por revisar' : money(paymentTotals.totalPendiente)
           ];
         });
 
@@ -1406,9 +1429,10 @@ export default function ClientList({ filterType = 'all', onCreateMinute }: Clien
         ['Total de clientes', String(filteredClients.length)],
         ['Clientes financiados', String(financedClients.length)],
         ['Clientes al contado', String(cashClients.length)],
-        ['Valor total de contratos', money(totals.montoTotal)],
-        ['TOTAL PAGADO POR TODOS LOS CLIENTES', money(totals.pagado)],
-        ['TOTAL PENDIENTE DE TODOS LOS CLIENTES', money(totals.pendiente)]
+        ['Valor de contratos con cronograma revisado', money(totals.montoTotal)],
+        ['TOTAL PAGADO REGISTRADO (EXCLUYE POR REVISAR)', money(totals.pagado)],
+        ['TOTAL PENDIENTE (EXCLUYE POR REVISAR)', money(totals.pendiente)],
+        ['Clientes por revisar, excluidos de los importes anteriores', String(filteredClients.filter(needsFinancialReview).length)]
       ];
 
       autoTable(doc, {
@@ -1458,8 +1482,9 @@ export default function ClientList({ filterType = 'all', onCreateMinute }: Clien
         <CardHeader className="flex flex-col gap-4 border-b border-[#e9ebe7] bg-[#fffefb] px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <div>
             <p className="mb-1 text-xs font-semibold uppercase tracking-[0.14em] text-[#54317f]">San Bartolomeo Inmobiliaria</p>
-            <CardTitle className="brand-display text-2xl text-[#33204f]">{filteredClients.length} cliente{filteredClients.length === 1 ? '' : 's'}</CardTitle>
+            <CardTitle className="brand-display text-2xl text-[#312144]">{filteredClients.length} cliente{filteredClients.length === 1 ? '' : 's'}</CardTitle>
             <p className="mt-1 text-sm text-[#697386]">Consulta pagos, documentos y datos de cada registro.</p>
+            {filteredClients.some(needsFinancialReview) && <p className="mt-2 text-sm text-amber-900">{filteredClients.filter(needsFinancialReview).length} registros importados por revisar. Usa «Completar» para confirmar el cronograma y registrar sus pagos manualmente.</p>}
           </div>
           <div className="flex flex-wrap justify-end gap-2">
             <Button onClick={exportClientsToPDF} disabled={filteredClients.length === 0}>
@@ -1522,6 +1547,7 @@ export default function ClientList({ filterType = 'all', onCreateMinute }: Clien
                   <TableHead className="w-[8%] px-1.5 text-center">DNIs</TableHead>
                   <TableHead className="w-[10%] px-1.5 text-center">Celulares</TableHead>
                   <TableHead className="w-[12%] px-1.5 text-center">Emails</TableHead>
+                  <TableHead className="px-1.5 text-center">Bloque</TableHead>
                   <TableHead className="px-1.5 text-center">Manzana</TableHead>
                   <TableHead className="px-1.5 text-center">Lote</TableHead>
                   <TableHead className="px-1.5 text-center">Metraje</TableHead>
@@ -1541,14 +1567,14 @@ export default function ClientList({ filterType = 'all', onCreateMinute }: Clien
                 {filteredClients.map((client, index) => (
                   <TableRow
                     key={client.id}
-                    className="group border-[#e4e7e2] odd:bg-white even:bg-[#fbfcfa] hover:bg-[#f7f2fb]"
+                    className="group border-[#e4e7e2] odd:bg-white even:bg-[#fbfcfa] hover:bg-[#f3f7ed]"
                   >
-                    <TableCell className="bg-inherit px-1.5 py-3 text-center font-semibold text-[#54317f] group-hover:bg-[#f7f2fb]">{index + 1}</TableCell>
-                    <TableCell className="break-words bg-inherit px-1.5 py-3 group-hover:bg-[#f7f2fb]">
+                    <TableCell className="bg-inherit px-1.5 py-3 text-center font-semibold text-[#54317f] group-hover:bg-[#f3f7ed]">{index + 1}</TableCell>
+                    <TableCell className="break-words bg-inherit px-1.5 py-3 group-hover:bg-[#f3f7ed]">
                       <div className="mx-auto w-fit max-w-full space-y-1.5 text-left">
                         {getClientTitulares(client).map((titular, titularIndex) => (
                           <div key={`${client.id}-nombre-${titularIndex}`} className="flex items-start gap-2">
-                            <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#f2ebf7] text-[10px] font-semibold text-[#54317f]">{titularIndex + 1}</span>
+                            <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#f3eaf9] text-[10px] font-semibold text-[#54317f]">{titularIndex + 1}</span>
                             <span className="font-medium text-[#182033]">{titular.nombre || 'Sin nombre'}</span>
                           </div>
                         ))}
@@ -1600,61 +1626,23 @@ export default function ClientList({ filterType = 'all', onCreateMinute }: Clien
                       )}
                     </TableCell>
                     <TableCell className="break-words px-1.5 py-3">
-                      {editingEmailClientId === client.id ? (
-                        <div className="space-y-2">
-                          <Input
-                            type="email"
-                            value={editEmail1}
-                            onChange={(e) => setEditEmail1(e.target.value)}
-                            placeholder="Correo 1"
-                            className="w-full"
-                          />
-                          <Input
-                            type="email"
-                            value={editEmail2}
-                            onChange={(e) => setEditEmail2(e.target.value)}
-                            placeholder="Correo 2"
-                            className="w-full"
-                          />
-                          <div className="flex gap-2">
-                            <Button size="sm" onClick={saveEmailEdit}>
-                              Guardar
-                            </Button>
-                            <Button size="sm" variant="outline" onClick={cancelEmailEdit}>
-                              Cancelar
-                            </Button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="flex items-center justify-center gap-1.5">
-                          <div className="flex min-w-0 flex-col">
-                            <span>{client.email1 || '-'}</span>
-                            <span className="text-xs text-slate-500">{client.email2 || ''}</span>
-                          </div>
-                          {canEditClients && <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-8 w-8 shrink-0"
-                            aria-label="Editar correos"
-                            title="Editar correos"
-                            onClick={() => startEmailEdit(client)}
-                          >
-                            <Edit className="w-4 h-4" />
-                          </Button>}
-                        </div>
-                      )}
+                      <div className="flex min-w-0 flex-col items-center">
+                        <span>{client.email1 || '-'}</span>
+                        <span className="text-xs text-slate-500">{client.email2 || ''}</span>
+                      </div>
                     </TableCell>
+                    <TableCell className="px-1.5 py-3 text-center">{client.bloque || '—'}</TableCell>
                     <TableCell className="px-1.5 py-3 text-center">{client.manzana}</TableCell>
                     <TableCell className="px-1.5 py-3 text-center">{client.lote}</TableCell>
                     <TableCell className="px-1.5 py-3 text-center">{client.metraje} m²</TableCell>
-                    <TableCell className="px-1.5 py-3 text-center font-semibold text-[#33204f]">S/ {client.montoTotal.toFixed(2)}</TableCell>
+                    <TableCell className="px-1.5 py-3 text-center font-semibold text-[#312144]">{needsFinancialReview(client) && client.montoTotal <= 0 ? 'Por completar' : `S/ ${client.montoTotal.toFixed(2)}`}</TableCell>
                     <TableCell className="px-1.5 py-3 text-center">
                       <Badge variant={client.formaPago === 'contado' ? 'default' : 'secondary'}>
                         {client.formaPago}
                       </Badge>
                     </TableCell>
                     <TableCell className="px-1.5 py-3 text-center">
-                      {client.inicial ? `S/ ${client.inicial.toFixed(2)}` : '-'}
+                      {client.inicial !== undefined ? `S/ ${client.inicial.toFixed(2)}` : needsFinancialReview(client) ? 'Por completar' : '-'}
                     </TableCell>
                     <TableCell className="px-1.5 py-3 text-center">{client.numeroCuotas || '-'}</TableCell>
                     {filterType === 'overdue' && (
@@ -1674,7 +1662,7 @@ export default function ClientList({ filterType = 'all', onCreateMinute }: Clien
                         <Badge variant="outline">{getClientStatus(client)}</Badge>
                       </TableCell>
                     )}
-                    <TableCell className="bg-inherit px-1.5 py-3 group-hover:bg-[#f7f2fb]">
+                    <TableCell className="bg-inherit px-1.5 py-3 group-hover:bg-[#f3f7ed]">
                       <div className="flex flex-wrap items-center justify-center gap-1.5">
                         {showMinuteAction && canLegal && (
                           <MinutaUploadButton
@@ -1685,7 +1673,7 @@ export default function ClientList({ filterType = 'all', onCreateMinute }: Clien
                         )}
                         {filterType === 'all' && canEditClients && <NoDebtCertificateButton client={client} />}
                         {filterType === 'overdue' && canLegal && <ResolutionDraftButton client={client} />}
-                        {client.cuotas && client.cuotas.length > 0 && (
+                        {(needsFinancialReview(client) || (client.cuotas && client.cuotas.length > 0)) && (
                           <Button
                             size="sm"
                             variant="outline"
@@ -1693,11 +1681,11 @@ export default function ClientList({ filterType = 'all', onCreateMinute }: Clien
                             onClick={() => openClientDetail(client)}
                           >
                             <Eye className="w-4 h-4 mr-1" />
-                            Cuotas
+                            {needsFinancialReview(client) ? 'Completar' : 'Cuotas'}
                           </Button>
                         )}
                         <div className="flex items-center gap-1.5">
-                          {canEditClients && <Button
+                          {canEditClients && !needsFinancialReview(client) && <Button
                             size="sm"
                             variant="outline"
                             aria-label={`Editar cuotas de ${getClientDisplayName(client)}`}
@@ -1713,8 +1701,8 @@ export default function ClientList({ filterType = 'all', onCreateMinute }: Clien
                             title="Libro de observaciones"
                             onClick={() => openObservations(client)}
                             className={client.observationEntries?.length || client.observaciones?.trim()
-                              ? 'border-[#ff9e32]/70 bg-[#fff8e8] text-[#805f1c] hover:bg-[#fff3d5] hover:text-[#805f1c]'
-                              : 'text-[#33204f]'}
+                              ? 'border-[#e59a3a]/70 bg-[#fff8e8] text-[#805f1c] hover:bg-[#fff3d5] hover:text-[#805f1c]'
+                              : 'text-[#312144]'}
                           >
                             <BookOpen className="w-4 h-4" />
                           </Button>
@@ -1723,9 +1711,10 @@ export default function ClientList({ filterType = 'all', onCreateMinute }: Clien
                             variant="destructive"
                             aria-label={`Eliminar a ${getClientDisplayName(client)}`}
                             title="Eliminar cliente"
-                            onClick={() => handleDeleteClient(client.id)}
+                            onClick={() => void handleDeleteClient(client.id)}
+                            disabled={deletingClientId !== null}
                           >
-                            <Trash2 className="w-4 h-4" />
+                            {deletingClientId === client.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                           </Button>}
                         </div>
                       </div>
@@ -1743,10 +1732,10 @@ export default function ClientList({ filterType = 'all', onCreateMinute }: Clien
       }}>
         <DialogContent className="w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border-[#d9ddd9] bg-[#fffefb] p-0 sm:max-w-xl">
           <DialogHeader className="border-b border-[#e9ebe7] bg-[#f5f4ef]/80 px-6 py-5 text-left">
-            <div className="mb-2 flex h-11 w-11 items-center justify-center rounded-xl bg-[#f2ebf7] text-[#54317f]">
+            <div className="mb-2 flex h-11 w-11 items-center justify-center rounded-xl bg-[#f3eaf9] text-[#54317f]">
               <BookOpen className="h-5 w-5" />
             </div>
-            <DialogTitle className="text-xl text-[#33204f]">Libro de observaciones</DialogTitle>
+            <DialogTitle className="text-xl text-[#312144]">Libro de observaciones</DialogTitle>
             <DialogDescription className="leading-6 text-[#697386]">
               {observationsClient ? getClientDisplayName(observationsClient) : ''}. Cada anotación conserva autor y fecha.
             </DialogDescription>
@@ -1755,11 +1744,11 @@ export default function ClientList({ filterType = 'all', onCreateMinute }: Clien
           <div className="max-h-[65vh] space-y-4 overflow-y-auto px-6 py-5">
             <div className="space-y-2" aria-label="Anotaciones anteriores">
               {observationsClient?.observaciones?.trim() && <div className="rounded-xl border border-[#d9ddd9] bg-[#f7f8f6] p-3 text-sm">
-                <p className="font-semibold text-[#33204f]">Nota anterior</p>
+                <p className="font-semibold text-[#312144]">Nota anterior</p>
                 <p className="mt-1 whitespace-pre-wrap text-[#5f6878]">{observationsClient.observaciones}</p>
               </div>}
               {observationsClient?.observationEntries?.slice().reverse().map(entry => <div key={entry.id} className="rounded-xl border border-[#d9ddd9] bg-white p-3 text-sm">
-                <div className="flex flex-wrap justify-between gap-2 font-semibold text-[#33204f]">
+                <div className="flex flex-wrap justify-between gap-2 font-semibold text-[#312144]">
                   <span>{entry.author}</span><time>{new Date(entry.at).toLocaleString('es-PE')}</time>
                 </div>
                 <p className="mt-2 whitespace-pre-wrap text-[#5f6878]">{entry.text}</p>
@@ -1767,7 +1756,7 @@ export default function ClientList({ filterType = 'all', onCreateMinute }: Clien
               {!observationsClient?.observaciones?.trim() && !observationsClient?.observationEntries?.length && <p className="text-sm text-[#697386]">Aún no hay anotaciones para este cliente.</p>}
             </div>
             {canEditClients && <>
-            <Label htmlFor="client-observations" className="text-[#33204f]">Nueva anotación</Label>
+            <Label htmlFor="client-observations" className="text-[#312144]">Nueva anotación</Label>
             <Textarea
               id="client-observations"
               value={observationDraft}
@@ -1775,7 +1764,7 @@ export default function ClientList({ filterType = 'all', onCreateMinute }: Clien
               maxLength={2000}
               rows={8}
               placeholder="Escribe un acuerdo o seguimiento…"
-              className="min-h-44 resize-y rounded-xl bg-white leading-6 focus-visible:border-[#5c3585]"
+              className="min-h-44 resize-y rounded-xl bg-white leading-6 focus-visible:border-[#6b4492]"
               disabled={savingObservation}
               autoFocus
             />
@@ -1809,11 +1798,12 @@ export default function ClientList({ filterType = 'all', onCreateMinute }: Clien
   <DialogContent className="max-h-[94vh] w-[calc(100vw-1rem)] max-w-[1500px] overflow-x-hidden overflow-y-auto p-4 sm:w-[calc(100vw-2rem)] sm:p-6">
             <DialogHeader className="pr-8">
               <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <DialogTitle className="text-center text-xl text-[#33204f] sm:text-left">Detalle de Cuotas</DialogTitle>
+                <DialogTitle className="text-center text-xl text-[#312144] sm:text-left">Detalle de Cuotas</DialogTitle>
                 <div className="flex flex-wrap justify-center gap-2 sm:justify-end">
                   <Button
                     size="sm"
                     variant="outline"
+                    disabled={needsFinancialReview(clients.find(c => c.id === selectedClient) || {})}
                     onClick={() => {
                       const client = clients.find(c => c.id === selectedClient);
                       if (client) exportToPDF(client);
@@ -1825,6 +1815,7 @@ export default function ClientList({ filterType = 'all', onCreateMinute }: Clien
                   <Button
                     size="sm"
                     variant="outline"
+                    disabled={needsFinancialReview(clients.find(c => c.id === selectedClient) || {})}
                     onClick={() => {
                       const client = clients.find(c => c.id === selectedClient);
                       if (client) exportToExcel(client);
@@ -1839,17 +1830,27 @@ export default function ClientList({ filterType = 'all', onCreateMinute }: Clien
             {(() => {
               const client = clients.find(c => c.id === selectedClient);
               if (!client || !client.cuotas) return null;
+              if (needsFinancialReview(client)) return <div className="space-y-4">
+                <p className="font-medium">{getClientDisplayName(client)} · Bloque {client.bloque} / Mz. {client.manzana} / Lt. {client.lote}</p>
+                <ImportedClientReview key={client.id} client={client} canEdit={canEditClients} onSave={data => updateClient(client.id, data)} />
+              </div>;
               return (
                 <div className="space-y-4">
-                  <div className="mx-auto w-full max-w-5xl space-y-4 rounded-xl bg-gray-50 p-4 text-sm sm:p-5">
+                  <div className="san-client-summary mx-auto w-full max-w-5xl space-y-4 rounded-xl border border-[#e9e0ee] bg-[#faf9f4] p-4 text-sm sm:p-5">
                     <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
                       <div className="flex min-w-0 items-start justify-center gap-1.5 text-center sm:justify-start sm:text-left">
                         <dt className="shrink-0 font-semibold text-slate-700">Cliente:</dt>
                         <dd className="min-w-0 text-slate-700">{getClientDisplayName(client)}</dd>
+                        {canEditClients && <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0" aria-label="Editar nombre del cliente" onClick={() => startDetailEdit(client,'nombre')}><Edit className="h-3.5 w-3.5" /></Button>}
                       </div>
                       <div className="flex min-w-0 items-start justify-center gap-1.5 text-center sm:justify-start sm:text-left">
                         <dt className="shrink-0 font-semibold text-slate-700">DNIs:</dt>
                         <dd className="min-w-0 text-slate-700">{getClientDisplayDnis(client)}</dd>
+                        {canEditClients && <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0" aria-label="Editar DNI del cliente" onClick={() => startDetailEdit(client,'dni')}><Edit className="h-3.5 w-3.5" /></Button>}
+                      </div>
+                      <div className="flex min-w-0 items-start justify-center gap-1.5 text-center sm:justify-start sm:text-left">
+                        <dt className="shrink-0 font-semibold text-slate-700">Bloque:</dt>
+                        <dd className="text-slate-700">{client.bloque || '—'}</dd>
                       </div>
                       <div className="flex min-w-0 items-start justify-center gap-1.5 text-center sm:justify-start sm:text-left">
                         <dt className="shrink-0 font-semibold text-slate-700">Manzana:</dt>
@@ -1862,6 +1863,7 @@ export default function ClientList({ filterType = 'all', onCreateMinute }: Clien
                       <div className="flex min-w-0 items-start justify-center gap-1.5 text-center sm:justify-start sm:text-left">
                         <dt className="shrink-0 font-semibold text-slate-700">Email:</dt>
                         <dd className="min-w-0 break-words text-slate-700">{client.email1 || 'N/A'}</dd>
+                        {canEditClients && <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0" aria-label="Editar correo del cliente" onClick={() => startDetailEdit(client,'email')}><Edit className="h-3.5 w-3.5" /></Button>}
                       </div>
                       <div className="flex min-w-0 items-start justify-center gap-1.5 text-center sm:justify-start sm:text-left">
                         <dt className="shrink-0 font-semibold text-slate-700">Metraje:</dt>
@@ -1869,10 +1871,24 @@ export default function ClientList({ filterType = 'all', onCreateMinute }: Clien
                       </div>
                     </dl>
 
+                    {canEditClients && detailEditField && <div className="rounded-lg border border-[#d9ddd9] bg-white p-3">
+                      <p className="mb-3 font-semibold text-[#312144]">Editar {detailEditField === 'nombre' ? 'cliente' : detailEditField === 'dni' ? 'DNI' : 'correo'}</p>
+                      {detailEditField === 'email' ? <div className="grid gap-3 sm:grid-cols-2">
+                        <div><Label htmlFor="detail-email-1">Correo principal</Label><Input id="detail-email-1" type="email" value={editEmail1} onChange={event => setEditEmail1(event.target.value)} /></div>
+                        <div><Label htmlFor="detail-email-2">Correo adicional</Label><Input id="detail-email-2" type="email" value={editEmail2} onChange={event => setEditEmail2(event.target.value)} /></div>
+                      </div> : <div className="grid gap-3 sm:grid-cols-2">
+                        {editTitulares.map((titular,index) => <div key={index}>
+                          <Label htmlFor={`detail-${detailEditField}-${index}`}>{detailEditField === 'nombre' ? 'Nombre' : 'DNI'} del titular {index+1}</Label>
+                          <Input id={`detail-${detailEditField}-${index}`} value={titular[detailEditField]} inputMode={detailEditField === 'dni' ? 'numeric' : 'text'} maxLength={detailEditField === 'dni' ? 8 : undefined} onChange={event => setEditTitulares(current => current.map((item,itemIndex) => itemIndex === index ? {...item,[detailEditField]:event.target.value} : item))} />
+                        </div>)}
+                      </div>}
+                      <div className="mt-3 flex gap-2"><Button size="sm" disabled={savingDetail} onClick={() => void saveDetailEdit(client)}>{savingDetail ? 'Guardando…' : 'Guardar'}</Button><Button size="sm" variant="outline" disabled={savingDetail} onClick={() => setDetailEditField(null)}>Cancelar</Button></div>
+                    </div>}
+
                   </div>
 
-                  {canPay && <div className="mx-auto flex w-full max-w-5xl justify-end">
-                    <div className="w-full rounded-xl border border-[#d9ddd9] bg-[#f7f8f6] p-3 shadow-sm sm:justify-self-end">
+                  {canPay && <div className="flex w-full max-w-5xl justify-start">
+                    <div className="w-full max-w-[215px] rounded-xl border border-[#d9ddd9] bg-[#f7f8f6] p-2.5 shadow-sm">
                       <Label htmlFor="paymentDate" className="block text-left text-[11px] font-semibold leading-4 text-[#5f6878]">
                         Fecha para marcar pagos
                       </Label>
@@ -1881,7 +1897,7 @@ export default function ClientList({ filterType = 'all', onCreateMinute }: Clien
                         type="date"
                         value={paymentDate}
                         onChange={(e) => setPaymentDate(e.target.value)}
-                        className="mt-1.5 h-9 w-full bg-white px-2 text-center text-xs"
+                        className="mt-1.5 h-8 w-full bg-white px-2 text-center text-xs"
                       />
                     </div>
                   </div>}
@@ -1910,7 +1926,7 @@ export default function ClientList({ filterType = 'all', onCreateMinute }: Clien
                           const totalDisplayed = cuota.monto + displayedMora;
                           
                           return (
-                            <TableRow key={index} className="grid grid-cols-2 gap-4 rounded-xl border border-[#d9ddd9] bg-white p-4 shadow-sm sm:grid-cols-3 lg:grid-cols-4 2xl:table-row 2xl:rounded-none 2xl:border-x-0 2xl:bg-transparent 2xl:p-0 2xl:shadow-none">
+                            <TableRow key={index} className="san-quota-row grid grid-cols-2 gap-4 rounded-xl border border-[#d9ddd9] bg-white p-4 shadow-sm sm:grid-cols-3 lg:grid-cols-4 2xl:table-row 2xl:rounded-none 2xl:border-x-0 2xl:bg-transparent 2xl:p-0 2xl:shadow-none">
                               <TableCell className="col-span-2 block min-w-0 p-0 text-center sm:col-span-1 2xl:table-cell 2xl:p-2">
                                 <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-500 2xl:hidden">Cuota</span>
                                 <Badge variant={cuota.numero === 0 ? 'secondary' : 'outline'}>
@@ -1958,21 +1974,21 @@ export default function ClientList({ filterType = 'all', onCreateMinute }: Clien
                               </TableCell>
                               <TableCell className="block min-w-0 p-0 text-center 2xl:table-cell 2xl:p-2">
                                 <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-500 2xl:hidden">Acción</span>
-                                {canPay && cuota.estado !== 'pagado' && (
+                                {canPay && (
                                   <Button 
                                     size="sm" 
                                     variant="outline"
                                     className="h-8 px-2 text-xs"
-                                    onClick={() => void handleMarkAsPaid(selectedClient, index)}
+                                    onClick={() => setPaymentConfirmation({clientId:client.id,cuotaIndex:index,action:cuota.estado === 'pagado' ? 'unmark' : 'mark'})}
                                   >
-                                    Marcar pagado
+                                    {cuota.estado === 'pagado' ? 'Desmarcar pago' : 'Marcar pagado'}
                                   </Button>
                                 )}
                               </TableCell>
                               <TableCell className="block min-w-0 p-0 text-center 2xl:table-cell 2xl:p-2">
                                 <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-500 2xl:hidden">Voucher</span>
                                 <div className="flex items-center justify-center gap-1">
-                                  {canPay && <Button size="sm" variant="ghost" className="h-8 w-8 p-0" aria-label={`Subir voucher de la cuota ${cuota.numero}`} title="Subir voucher" onClick={() => handleFileUpload(selectedClient, index, 'voucher')}>
+                                  {canPay && isStorageEnabled && <Button size="sm" variant="ghost" className="h-8 w-8 p-0" aria-label={`Subir voucher de la cuota ${cuota.numero}`} title="Subir voucher" onClick={() => handleFileUpload(selectedClient, index, 'voucher')}>
                                     <Upload className="w-4 h-4" />
                                   </Button>}
                                   {(Array.isArray(cuota.voucher) ? cuota.voucher.length > 0 : !!cuota.voucher) && (
@@ -2000,7 +2016,7 @@ export default function ClientList({ filterType = 'all', onCreateMinute }: Clien
                               <TableCell className="block min-w-0 p-0 text-center 2xl:table-cell 2xl:p-2">
                                 <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-500 2xl:hidden">Boleta</span>
                                 <div className="flex items-center justify-center gap-1">
-                                  {canBoleta && <Button size="sm" variant="ghost" className="h-8 w-8 p-0" aria-label={`Subir boleta de la cuota ${cuota.numero}`} title="Subir boleta" onClick={() => handleFileUpload(selectedClient, index, 'boleta')}>
+                                  {canBoleta && isStorageEnabled && <Button size="sm" variant="ghost" className="h-8 w-8 p-0" aria-label={`Subir boleta de la cuota ${cuota.numero}`} title="Subir boleta" onClick={() => handleFileUpload(selectedClient, index, 'boleta')}>
                                     <Upload className="w-4 h-4" />
                                   </Button>}
                                   {(Array.isArray(cuota.boleta) ? cuota.boleta.length > 0 : !!cuota.boleta) && (
@@ -2054,15 +2070,34 @@ export default function ClientList({ filterType = 'all', onCreateMinute }: Clien
         </Dialog>
       )}
 
+      <AlertDialog open={paymentConfirmation !== null} onOpenChange={open => {if (!open && !savingPayment) setPaymentConfirmation(null);}}>
+        <AlertDialogContent className="sm:max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{paymentConfirmation?.action === 'unmark' ? '¿Desmarcar este pago?' : '¿Marcar esta cuota como pagada?'}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {paymentConfirmation?.action === 'unmark'
+                ? 'La cuota volverá a pendiente y se quitará su fecha de pago. Los vouchers y boletas adjuntos se conservarán.'
+                : `Se registrará el pago con fecha ${paymentDate ? formatDate(paymentDate) : 'sin seleccionar'}. Confirma que has comprobado el abono.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={savingPayment}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction disabled={savingPayment || (paymentConfirmation?.action === 'mark' && !paymentDate)} onClick={event => {event.preventDefault();void confirmPaymentChange();}}>
+              {savingPayment ? 'Guardando…' : paymentConfirmation?.action === 'unmark' ? 'Sí, desmarcar' : 'Sí, marcar pagado'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <Dialog open={attachmentManager !== null} onOpenChange={open => {
         if (!open && !deletingAttachment) setAttachmentManager(null);
       }}>
         <DialogContent className="w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border-[#d9ddd9] bg-[#fffefb] p-0 sm:max-w-lg">
           <DialogHeader className="border-b border-[#e9ebe7] bg-[#f5f4ef]/80 px-6 py-5 text-left">
-            <div className="mb-2 flex h-11 w-11 items-center justify-center rounded-xl bg-[#f2ebf7] text-[#54317f]">
+            <div className="mb-2 flex h-11 w-11 items-center justify-center rounded-xl bg-[#f3eaf9] text-[#54317f]">
               <FileCheck2 className="h-5 w-5" />
             </div>
-            <DialogTitle className="text-xl text-[#33204f]">
+            <DialogTitle className="text-xl text-[#312144]">
               {attachmentManager?.fileType === 'voucher' ? 'Vouchers' : 'Boletas'} de la cuota {attachmentManager?.cuotaNumber}
             </DialogTitle>
             <DialogDescription className="leading-6 text-[#697386]">
@@ -2080,7 +2115,7 @@ export default function ClientList({ filterType = 'all', onCreateMinute }: Clien
                   href={file.url}
                   target="_blank"
                   rel="noreferrer"
-                  className="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-lg px-2.5 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5c3585]"
+                  className="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-lg px-2.5 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6b4492]"
                   aria-label={`Abrir ${file.name || `archivo ${index + 1}`}`}
                 >
                   <FileText className="h-5 w-5 shrink-0 text-[#54317f]" />
@@ -2120,7 +2155,7 @@ export default function ClientList({ filterType = 'all', onCreateMinute }: Clien
             <div className="mx-auto mb-2 flex h-11 w-11 items-center justify-center rounded-xl bg-rose-50 text-[#a63d45] sm:mx-0">
               <Trash2 className="h-5 w-5" />
             </div>
-            <AlertDialogTitle className="text-[#33204f]">
+            <AlertDialogTitle className="text-[#312144]">
               ¿Eliminar {attachmentToDelete?.fileType === 'voucher' ? 'este voucher' : 'esta boleta'}?
             </AlertDialogTitle>
             <AlertDialogDescription className="leading-6 text-[#697386]">
