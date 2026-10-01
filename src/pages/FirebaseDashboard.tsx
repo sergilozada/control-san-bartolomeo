@@ -185,7 +185,7 @@ export default function FirebaseDashboard({ demo = false }: { demo?: boolean }) 
   ];
 
   return (
-    <div className="vh-dashboard-shell san-design min-h-screen bg-[#f8f5fb] text-[#312144]">
+    <div className="vh-dashboard-shell san-design min-h-screen bg-[#f5f2ed] text-[#312144]">
       {demo && <div className="sb-demo-banner flex flex-wrap items-center justify-center gap-x-4 gap-y-2 bg-[#e7f8f6] px-4 py-2 text-center text-sm font-medium text-[#0c6268]">
         <span>Vista previa local · datos ficticios · los cambios no se guardan</span>
         <label className="flex items-center gap-2">Usuario de muestra
@@ -310,9 +310,7 @@ export default function FirebaseDashboard({ demo = false }: { demo?: boolean }) 
           </p>}
           <TabsContent value="inicio" className="mt-0 space-y-4">
             <section className="vh-hero-enter relative isolate min-h-[230px] overflow-hidden rounded-[22px] bg-white px-5 py-5 text-[#312144] shadow-lg shadow-[#312144]/10 sm:px-7 sm:py-7">
-              <div className="pointer-events-none absolute -right-10 -top-20 -z-10 h-80 w-80 rounded-full border border-[#714899]/10 bg-white/10" aria-hidden="true" />
-              <div className="pointer-events-none absolute -bottom-32 right-1/3 -z-10 h-64 w-64 rounded-full bg-[#27b8b2]/15 blur-3xl" aria-hidden="true" />
-              <div className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-[#714899] via-[#27b8b2] to-transparent" aria-hidden="true" />
+              <div className="absolute inset-x-0 bottom-0 h-1 bg-[#4a3068]" aria-hidden="true" />
               <div className="flex min-h-[174px] flex-col justify-between gap-4 sm:flex-row sm:items-end">
                 <div className="max-w-2xl">
                   <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#b5e7e2] bg-[#e7f8f6] px-3 py-1 text-xs font-semibold text-[#0d5f65]">

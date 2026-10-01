@@ -195,13 +195,7 @@ export default function MinutasWorkspace({ initialClientId }: { initialClientId?
       className="relative isolate hidden min-h-[calc(100dvh-8.5rem)] flex-col justify-between overflow-hidden bg-[#312144] p-10 text-white xl:flex 2xl:p-14"
       aria-label="Minutas de San Bartolomeo Inmobiliaria"
     >
-      <div
-        className="absolute inset-0 -z-20"
-        style={{
-          backgroundImage: 'radial-gradient(circle at 88% 12%, rgba(39,184,178,.24), transparent 23rem), radial-gradient(circle at 5% 95%, rgba(138,113,189,.28), transparent 25rem), linear-gradient(145deg, #183d56 0%, #3e396d 55%, #54317f 120%)',
-        }}
-        aria-hidden="true"
-      />
+      <div className="absolute inset-0 -z-20 bg-[#4a3068]" aria-hidden="true" />
       <div className="absolute -right-32 top-32 -z-10 h-[34rem] w-[34rem] rounded-full border border-white/10" aria-hidden="true" />
       <div className="absolute -right-16 top-48 -z-10 h-[25rem] w-[25rem] rounded-full border border-white/10" aria-hidden="true" />
 
@@ -278,7 +272,7 @@ export default function MinutasWorkspace({ initialClientId }: { initialClientId?
   </div>;
 
   if (workspaceView === 'home') return <div className="space-y-5">{navigation}
-    <section className="relative overflow-hidden rounded-3xl bg-[#54317f] p-8 text-white shadow-lg sm:p-12" style={{ backgroundImage: 'linear-gradient(90deg, #312144f5, #5b3b15d9)', backgroundSize: 'cover', backgroundPosition: 'center' }}>
+    <section className="relative overflow-hidden rounded-3xl bg-[#4a3068] p-8 text-white shadow-lg sm:p-12">
       <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#27b8b2]">San Bartolomeo Inmobiliaria</p>
       <h2 className="brand-display mt-4 max-w-xl text-4xl">Crea una minuta desde cero.</h2>
       <p className="mt-3 max-w-xl text-sm leading-6 text-white/80">Registra compradores, verifica importes y genera un Word de trabajo para revisión legal.</p>

@@ -86,13 +86,11 @@ export default function FirebaseLogin({ preview = false }: { preview?: boolean }
   };
 
   return (
-    <main className="vh-login-scene san-login relative flex min-h-screen items-center justify-center overflow-hidden bg-[#e7f8f6] p-3 sm:px-6 sm:py-3">
+    <main className="vh-login-scene san-login relative flex min-h-screen items-center justify-center overflow-hidden bg-[#f5f2ed] p-3 sm:px-6 sm:py-3">
       <div className="san-login-ambient absolute inset-0" aria-hidden="true" />
 
       <div className="vh-login-shell-enter relative grid w-full max-w-6xl overflow-hidden rounded-[26px] border border-white/15 bg-[#fffefb] shadow-[0_38px_110px_rgba(0,8,24,0.46)] lg:min-h-[680px] lg:grid-cols-[1.12fr_0.88fr]">
-        <section className="vh-login-visual-enter san-login-visual relative hidden min-h-[680px] overflow-hidden bg-gradient-to-br from-[#e4f8f5] via-[#f2eff9] to-[#dcd6ec] p-10 text-[#312144] lg:flex lg:flex-col lg:justify-between xl:p-12">
-          <div className="pointer-events-none absolute -right-32 top-24 h-96 w-96 rounded-full border border-[#704a98]/10 bg-white/25 blur-sm" aria-hidden="true" />
-          <div className="pointer-events-none absolute -bottom-28 -left-24 h-80 w-80 rounded-full bg-[#27b8b2]/15 blur-3xl" aria-hidden="true" />
+        <section className="vh-login-visual-enter san-login-visual relative hidden min-h-[680px] overflow-hidden bg-[#eee7f3] p-10 text-[#312144] lg:flex lg:flex-col lg:justify-between xl:p-12">
 
           <div className="relative">
             <div className="inline-flex items-center gap-2 rounded-full border border-[#afe4df] bg-white/70 px-3 py-1.5 text-xs font-semibold tracking-wide text-[#0d6268] backdrop-blur-md">
@@ -198,7 +196,7 @@ export default function FirebaseLogin({ preview = false }: { preview?: boolean }
                 </Alert>
               )}
 
-              <Button type="submit" size="lg" className="vh-primary-action h-12 w-full rounded-xl bg-gradient-to-r from-[#6b4492] to-[#54317f] shadow-[0_10px_24px_rgba(13,111,120,0.22)]" disabled={loading || preview}>
+              <Button type="submit" size="lg" className="vh-primary-action h-12 w-full rounded-xl bg-[#4a3068] shadow-[0_10px_24px_rgba(49,33,68,0.18)]" disabled={loading || preview}>
                 {loading ? (
                   <>
                     <LoaderCircle className="h-4 w-4 animate-spin motion-reduce:animate-none" />
@@ -249,7 +247,7 @@ export default function FirebaseLogin({ preview = false }: { preview?: boolean }
               <DialogFooter>
                 <Button
                   type="button"
-                  className="vh-primary-action h-11 w-full rounded-xl bg-gradient-to-r from-[#6b4492] to-[#54317f]"
+                  className="vh-primary-action h-11 w-full rounded-xl bg-[#4a3068]"
                   onClick={() => setResetDialogOpen(false)}
                 >
                   Volver al inicio de sesión
@@ -297,7 +295,7 @@ export default function FirebaseLogin({ preview = false }: { preview?: boolean }
                 </Button>
                 <Button
                   type="submit"
-                  className="vh-primary-action h-11 rounded-xl bg-gradient-to-r from-[#6b4492] to-[#54317f]"
+                  className="vh-primary-action h-11 rounded-xl bg-[#4a3068]"
                   disabled={resetLoading || !resetEmail.trim()}
                 >
                   {resetLoading ? (

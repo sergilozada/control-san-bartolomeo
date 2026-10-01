@@ -139,7 +139,7 @@ export default function ClientRegistrationDialog({ onClose, onSave }: ClientRegi
     <Dialog open onOpenChange={open => !open && !loading && onClose()}>
       <DialogContent className="flex max-h-[94vh] w-[calc(100vw-1rem)] max-w-4xl flex-col gap-0 overflow-hidden border-[#d9ddd9] bg-[#fffefb] p-0 shadow-2xl sm:w-[calc(100vw-2rem)] sm:rounded-3xl">
         <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
-          <DialogHeader className="border-b border-[#d9ddd9] bg-gradient-to-r from-[#f1faf8] to-[#fffefb] px-5 py-5 pr-14 sm:px-7 sm:py-6 sm:pr-16">
+          <DialogHeader className="border-b border-[#d9ddd9] bg-[#f3edf7] px-5 py-5 pr-14 sm:px-7 sm:py-6 sm:pr-16">
             <div className="flex items-start gap-3 text-left">
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#54317f] text-white shadow-sm">
                 <UsersRound className="h-5 w-5" aria-hidden="true" />
