@@ -38,7 +38,16 @@ export default function ImportedClientReview({client, canEdit, onSave}: {
         numeroCuotas:method === 'cuotas' ? Number(count) : 1, formaPago:method, cuotas,
         importReview:{...review, status:'ready', firstDueDate:dueDate, initialDate, dateMapping:'excel-firma-inicio-cuota-v1', reviewedAt:new Date().toISOString()}});
       toast.success('Cronograma guardado. Ya puedes registrar los pagos y sus comprobantes.');
-    } catch { toast.error('No se guardó el cronograma. Inténtalo de nuevo.'); }
+    } catch (cause) {
+      console.error('No se pudo guardar el cronograma importado:', cause);
+      const code = typeof cause === 'object' && cause !== null && 'code' in cause
+        ? String(cause.code) : '';
+      toast.error(code === 'permission-denied'
+        ? 'Firebase rechazó el guardado. Recarga la página y verifica que tu usuario sea administrador.'
+        : code === 'unavailable'
+          ? 'No hay conexión con Firebase. Comprueba internet y vuelve a guardar.'
+          : 'No se guardó el cronograma. Revisa la consola o comunica el error al administrador.');
+    }
     finally { setSaving(false); }
   };
   return <section className="space-y-5 rounded-xl border border-[#b5e7e2] bg-[#f0fbfa] p-4 sm:p-6">
