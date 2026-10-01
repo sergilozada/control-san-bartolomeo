@@ -10,10 +10,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { createMinute, updateMinute } from './minuteStore';
 import { unlockMinutes } from './minuteAccess';
-import { blankBuyer, blankMinute, buildSchedule, documentHint, documentLabel, money, normalizeBuyerDocument, validateMinute, type InitialPayment, type MinuteBuyer, type MinuteDraft, type MinuteRecord } from './types';
+import { blankBuyer, blankMinute, documentHint, documentLabel, minuteSchedule, money, normalizeBuyerDocument, validateMinute, type InitialPayment, type MinuteBuyer, type MinuteDraft, type MinuteRecord } from './types';
 
 interface MinuteEvent { id: string; minuteId: string; actorEmail: string; action: string; fields: string[]; summary?: string; createdAt?: Timestamp }
 
@@ -41,7 +40,7 @@ export default function MinutasWorkspace({ initialClientId }: { initialClientId?
   const prefilledClient = useRef<string | null>(null);
   const selectedClient = clients.find(client => client.id === draft.clientId);
   const schedule = draft.firstDueDate && draft.totalPrice > draft.initialAmount && draft.installments > 0 && draft.installments <= 240
-    ? buildSchedule(draft) : [];
+    ? minuteSchedule(draft) : [];
 
   useEffect(() => {
     if (preview || !user || !unlocked || !canManageMinutes(user.role)) return;
@@ -62,18 +61,19 @@ export default function MinutasWorkspace({ initialClientId }: { initialClientId?
 
   const fillFromClient = (clientId: string) => {
     const client = clients.find(item => item.id === clientId);
-    if (!client) return;
+    if (!client) { setDraft(blankMinute()); setEditingId(null); return; }
     const buyerList = getClientTitulares(client).map(titular => ({
       ...blankBuyer(), name: titular.nombre, document: titular.dni,
     }));
-    const firstRegular = client.cuotas?.find(cuota => cuota.numero > 0);
+    const clientQuotas = client.cuotas?.filter(cuota => cuota.numero > 0).sort((a, b) => a.numero - b.numero) || [];
     setDraft({
       ...blankMinute(), clientId,
       buyers: buyerList.length ? buyerList : [blankBuyer()],
       block: client.manzana, lot: client.lote, area: client.metraje,
       totalPrice: client.montoTotal, initialAmount: client.inicial || 0,
-      installments: 30,
-      firstDueDate: firstRegular?.vencimiento || '',
+      installments: client.numeroCuotas || clientQuotas.length || 30,
+      firstDueDate: clientQuotas[0]?.vencimiento || '',
+      scheduleSnapshot: clientQuotas.length ? clientQuotas.map(cuota => ({ number: cuota.numero, dueDate: cuota.vencimiento, amount: cuota.monto })) : undefined,
     });
     setEditingId(null);
     prefilledClient.current = clientId;
@@ -86,7 +86,10 @@ export default function MinutasWorkspace({ initialClientId }: { initialClientId?
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialClientId, clients.length]);
 
-  const setValue = <K extends keyof MinuteDraft>(key: K, value: MinuteDraft[K]) => setDraft(current => ({ ...current, [key]: value }));
+  const setValue = <K extends keyof MinuteDraft>(key: K, value: MinuteDraft[K]) => setDraft(current => ({
+    ...current, [key]: value,
+    ...(['totalPrice', 'initialAmount', 'installments', 'firstDueDate'].includes(key) ? { scheduleSnapshot: undefined } : {}),
+  }));
   const setBuyer = (index: number, key: keyof MinuteBuyer, value: string) => setDraft(current => ({
     ...current, buyers: current.buyers.map((buyer, buyerIndex) => buyerIndex === index ? { ...buyer, [key]: value } : buyer),
   }));
@@ -99,7 +102,7 @@ export default function MinutasWorkspace({ initialClientId }: { initialClientId?
     if (preview) {
       const id = editingId || crypto.randomUUID();
       const item: MinuteRecord = {
-        id, reference: `ER-MUESTRA-${id.slice(0, 4).toUpperCase()}`, clientId: draft.clientId,
+        id, reference: `SB-MUESTRA-${id.slice(0, 4).toUpperCase()}`, clientId: draft.clientId,
         clientName: buyerName, status: 'borrador', draft,
         createdBy: 'demo', updatedBy: 'demo',
       };
@@ -128,16 +131,20 @@ export default function MinutasWorkspace({ initialClientId }: { initialClientId?
   };
 
   const handleGenerate = async () => {
+    if (!selectedClient || selectedClient.formaPago !== 'cuotas') {
+      toast.error('Este modelo es solo para un cliente registrado con pago financiado. El modelo al contado llegará después.');
+      return;
+    }
     const errors = validateMinute(draft);
     if (errors.length) { toast.error(errors[0]); return; }
     setBusy(true);
     try {
-      const { createMinuteDocument } = await import('./minuteDocument');
-      const blob = await createMinuteDocument(draft);
+      const { createFinancedMinuteDocument } = await import('./financedMinuteTemplate');
+      const blob = await createFinancedMinuteDocument(draft);
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
       anchor.href = url;
-      anchor.download = `borrador-minuta-san-bartolomeo-mz-${draft.block}-lote-${draft.lot}.docx`.replace(/[^a-zA-Z0-9._-]/g, '_');
+      anchor.download = `minuta-financiada-san-bartolomeo-mz-${draft.block}-lote-${draft.lot}.docx`.replace(/[^a-zA-Z0-9._-]/g, '_');
       document.body.append(anchor);
       anchor.click();
       anchor.remove();
@@ -161,7 +168,7 @@ export default function MinutasWorkspace({ initialClientId }: { initialClientId?
       toast.success('Word de trabajo generado para revisión');
     } catch (error) {
       console.error('No se pudo crear o descargar el Word de la minuta:', error);
-      toast.error('No se pudo generar el Word.');
+      toast.error(error instanceof Error ? error.message : 'No se pudo generar el Word.');
     } finally { setBusy(false); }
   };
 
@@ -182,7 +189,7 @@ export default function MinutasWorkspace({ initialClientId }: { initialClientId?
       setWorkspaceView(initialClientId ? 'records' : 'home');
     } catch (error) {
       console.error('No se pudo abrir Minutas:', error);
-      setLoginError('No se pudo verificar la contraseña de Minutas.');
+      setLoginError('No se pudo verificar la contraseña de tu cuenta de San Bartolomeo.');
     } finally { setLoginBusy(false); }
   };
 
@@ -234,7 +241,7 @@ export default function MinutasWorkspace({ initialClientId }: { initialClientId?
         </div>
         <p className="mt-7 text-xs font-bold uppercase tracking-[0.2em] text-[#0d6268]">Acceso interno</p>
         <h2 id="minute-login-title" className="brand-display mt-3 text-4xl font-medium leading-tight text-[#312144]">Ingresar a Minutas</h2>
-        <p className="mt-3 text-base leading-6 text-[#697386]">Ingresa la contraseña de Minutas para abrir esta área.</p>
+        <p className="mt-3 text-base leading-6 text-[#697386]">Ingresa la misma contraseña que usas para iniciar sesión en San Bartolomeo.</p>
 
         <form onSubmit={event => void handleLogin(event)} className="mt-9 space-y-5">
           {!preview && <>
@@ -243,8 +250,8 @@ export default function MinutasWorkspace({ initialClientId }: { initialClientId?
               <Input id="minute-email" type="email" value={firebaseUser?.email || ''} readOnly autoComplete="username" className="min-h-12 rounded-xl border-[#d9ddd2] bg-[#f7f6f0] px-4 text-base text-[#56604f]" />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="minute-password" className="text-sm font-semibold text-[#312144]">Contraseña de Minutas</Label>
-              <Input id="minute-password" type="password" value={password} onChange={event => setPassword(event.target.value)} autoComplete="off" placeholder="Ingresa la contraseña de Minutas" className="min-h-12 rounded-xl border-[#cfd5c7] bg-white px-4 text-base focus-visible:ring-[#6b7f35]" required />
+              <Label htmlFor="minute-password" className="text-sm font-semibold text-[#312144]">Contraseña de tu cuenta</Label>
+              <Input id="minute-password" type="password" value={password} onChange={event => setPassword(event.target.value)} autoComplete="off" placeholder="Ingresa tu contraseña de San Bartolomeo" className="min-h-12 rounded-xl border-[#cfd5c7] bg-white px-4 text-base focus-visible:ring-[#6b7f35]" required />
             </div>
           </>}
           {loginError && <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{loginError}</p>}
@@ -304,11 +311,13 @@ export default function MinutasWorkspace({ initialClientId }: { initialClientId?
         </CardContent>
       </Card>
       <Card className="min-w-0 border-[#d9ddd9] bg-[#fffefb]">
-        <CardHeader className="border-b border-[#e9ebe7]"><CardTitle>{editingId ? 'Editar borrador' : 'Nueva minuta'}</CardTitle><p className="text-sm text-[#697386]">Registra los datos directamente. Si abriste Minutas desde un cliente, sus datos aparecen como punto de partida.</p></CardHeader>
+        <CardHeader className="border-b border-[#e9ebe7]"><CardTitle>{editingId ? 'Editar borrador' : 'Nueva minuta'}</CardTitle><p className="text-sm text-[#697386]">Completa solo los datos del cliente y de su operación. Los datos de San Bartolomeo y su representante permanecen fijos en el modelo original.</p></CardHeader>
         <CardContent className="space-y-7 pt-6">
           <section className="space-y-4">
             <h2 className="text-lg font-semibold text-[#312144]">1. Cliente y compradores</h2>
+            <div className="space-y-2"><Label htmlFor="minute-client">Cliente financiado</Label><select id="minute-client" value={draft.clientId} onChange={event => fillFromClient(event.target.value)} disabled={!canEdit} className={`w-full border px-3 ${field}`}><option value="">Selecciona un cliente registrado</option>{clients.filter(client => client.formaPago === 'cuotas').map(client => <option key={client.id} value={client.id}>{getClientDisplayName(client)} · Mz. {client.manzana} · Lote {client.lote}</option>)}</select></div>
             {selectedClient && <p className="rounded-xl bg-[#f4f7ef] px-4 py-2 text-sm text-[#54317f]">Datos cargados de {getClientDisplayName(selectedClient)}. Puedes editarlos en esta minuta.</p>}
+            {selectedClient?.formaPago === 'contado' && <p className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-900">El modelo de este Word es solo para venta financiada. El modelo al contado se incorporará cuando se reciba.</p>}
             {draft.buyers.map((buyer, index) => <div key={index} className="grid gap-3 rounded-xl border border-[#e5e7df] bg-[#f3eaf9] p-4 md:grid-cols-2">
               <div className="md:col-span-2 flex items-center justify-between"><h3 className="font-semibold text-[#312144]">Comprador {index + 1}</h3>{draft.buyers.length > 1 && canEdit && <Button size="sm" variant="ghost" onClick={() => setValue('buyers', draft.buyers.filter((_, i) => i !== index))}>Quitar</Button>}</div>
               <div><Label>Nombre completo</Label><Input value={buyer.name} onChange={event => setBuyer(index, 'name', event.target.value)} disabled={!canEdit} className={field} /></div>
@@ -318,8 +327,6 @@ export default function MinutasWorkspace({ initialClientId }: { initialClientId?
               <div><Label>Estado civil</Label><Input value={buyer.maritalStatus} onChange={event => setBuyer(index, 'maritalStatus', event.target.value)} disabled={!canEdit} className={field} /></div>
               <div className="md:col-span-2"><Label>Domicilio</Label><Input value={buyer.address} onChange={event => setBuyer(index, 'address', event.target.value)} disabled={!canEdit} className={field} /></div>
               <div><Label>Nacionalidad</Label><Input value={buyer.nationality || ''} onChange={event => setBuyer(index, 'nationality', event.target.value)} disabled={!canEdit} className={field} /></div>
-              <div><Label>Correo de contacto</Label><Input type="email" value={buyer.email || ''} onChange={event => setBuyer(index, 'email', event.target.value)} disabled={!canEdit} className={field} /></div>
-              <div><Label>Celular de contacto</Label><Input value={buyer.phone || ''} onChange={event => setBuyer(index, 'phone', event.target.value)} disabled={!canEdit} className={field} /></div>
               <div><Label>Distrito</Label><Input value={buyer.district || ''} onChange={event => setBuyer(index, 'district', event.target.value)} disabled={!canEdit} className={field} /></div>
               <div><Label>Provincia</Label><Input value={buyer.province || ''} onChange={event => setBuyer(index, 'province', event.target.value)} disabled={!canEdit} className={field} /></div>
               <div><Label>Departamento</Label><Input value={buyer.department || ''} onChange={event => setBuyer(index, 'department', event.target.value)} disabled={!canEdit} className={field} /></div>
@@ -329,7 +336,6 @@ export default function MinutasWorkspace({ initialClientId }: { initialClientId?
           <section className="space-y-4 border-t border-[#e9ebe7] pt-6">
             <h2 className="text-lg font-semibold text-[#312144]">2. Lote y precio</h2>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              <div><Label>Tipo de lote</Label><select value={draft.propertyType} onChange={event => setValue('propertyType', event.target.value as MinuteDraft['propertyType'])} disabled={!canEdit} className={`w-full border px-3 ${field}`}><option value="lote">Lote</option><option value="macrolote">Macrolote</option></select></div>
               <div><Label>Manzana</Label><Input value={draft.block} onChange={event => setValue('block', event.target.value)} disabled={!canEdit} className={field} /></div>
               <div><Label>Lote</Label><Input value={draft.lot} onChange={event => setValue('lot', event.target.value)} disabled={!canEdit} className={field} /></div>
               <div><Label>Área m²</Label><Input type="number" min={0} value={draft.area || ''} onChange={event => setValue('area', Number(event.target.value))} disabled={!canEdit} className={field} /></div>
@@ -341,10 +347,11 @@ export default function MinutasWorkspace({ initialClientId }: { initialClientId?
           <section className="space-y-4 border-t border-[#e9ebe7] pt-6">
             <h2 className="text-lg font-semibold text-[#312144]">3. Pagos de inicial</h2>
             <p className="text-sm text-[#697386]">Registra solo pagos verificados. La suma debe coincidir con la cuota inicial para generar el Word.</p>
-            {draft.initialPayments.map((payment, index) => <div key={index} className="grid gap-3 rounded-xl border border-[#e5e7df] p-3 sm:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_1fr_auto]">
+            {draft.initialPayments.map((payment, index) => <div key={index} className="grid gap-3 rounded-xl border border-[#e5e7df] p-3 sm:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_1fr_1fr_auto]">
               <div><Label>Fecha</Label><Input type="date" value={payment.date} onChange={event => setPayment(index, 'date', event.target.value)} disabled={!canEdit} className={field} /></div>
               <div><Label>Medio</Label><select value={payment.method} onChange={event => setDraft(current => ({ ...current, initialPayments: current.initialPayments.map((item, i) => i === index ? { ...item, method: event.target.value, bank: ['Depósito', 'Transferencia'].includes(event.target.value) ? item.bank : '' } : item) }))} disabled={!canEdit} className={`w-full border px-3 ${field}`}><option value="">Seleccionar</option>{['Yape', 'Plin', 'Depósito', 'Transferencia', 'Otro'].map(method => <option key={method} value={method}>{method}</option>)}</select></div>
               <div><Label>Banco</Label><select value={payment.bank || ''} onChange={event => setPayment(index, 'bank', event.target.value)} disabled={!canEdit || !['Depósito', 'Transferencia'].includes(payment.method)} className={`w-full border px-3 ${field}`}><option value="">Seleccionar</option><option value="Interbank">Interbank</option><option value="BBVA">BBVA</option></select></div>
+              <div><Label>N.° de operación</Label><Input value={payment.operationNumber || ''} onChange={event => setPayment(index, 'operationNumber', event.target.value)} disabled={!canEdit} placeholder="Si consta en el voucher" className={field} /></div>
               <div><Label>Monto S/</Label><Input type="number" min={0} step="0.01" value={payment.amount || ''} onChange={event => setPayment(index, 'amount', Number(event.target.value))} disabled={!canEdit} className={field} /></div>
               {canEdit && <Button size="sm" variant="ghost" className="self-end" onClick={() => setValue('initialPayments', draft.initialPayments.filter((_, i) => i !== index))}>Quitar</Button>}
             </div>)}
@@ -353,27 +360,9 @@ export default function MinutasWorkspace({ initialClientId }: { initialClientId?
           </section>
           <section className="space-y-4 border-t border-[#e9ebe7] pt-6">
             <h2 className="text-lg font-semibold text-[#312144]">4. Financiamiento y revisión</h2>
-            <div className="grid gap-3 sm:grid-cols-2"><div><Label>Número total de cuotas</Label><Input type="number" min={1} max={240} value={draft.installments || ''} onChange={event => setValue('installments', Number(event.target.value))} disabled={!canEdit || user?.role !== 'admin'} className={field} /><p className="mt-1 text-xs text-[#697386]">30 cuotas predeterminadas. Solo administración puede cambiar esta cantidad.</p></div><div><Label>Primera fecha de vencimiento</Label><Input type="date" value={draft.firstDueDate} onChange={event => setValue('firstDueDate', event.target.value)} disabled={!canEdit} className={field} /></div></div>
+            <div className="grid gap-3 sm:grid-cols-2"><div><Label>Número total de cuotas</Label><Input type="number" min={1} max={240} value={draft.installments || ''} onChange={event => setValue('installments', Number(event.target.value))} disabled={!canEdit || user?.role !== 'admin'} className={field} /><p className="mt-1 text-xs text-[#697386]">Se toma del cliente. Solo administración puede cambiar esta cantidad; al hacerlo se recalcula el cronograma de esta minuta.</p></div><div><Label>Primera fecha de vencimiento</Label><Input type="date" value={draft.firstDueDate} onChange={event => setValue('firstDueDate', event.target.value)} disabled={!canEdit} className={field} /></div></div>
             {schedule.length > 0 && <div className="max-h-64 overflow-y-auto rounded-xl border border-[#d9ddd9]"><table className="w-full text-sm"><thead className="sticky top-0 bg-[#f3eaf9] text-[#312144]"><tr><th className="p-2 text-left">Comprador</th><th className="p-2 text-left">Vencimiento</th><th className="p-2 text-right">Monto</th></tr></thead><tbody>{schedule.map(item => <tr key={item.number} className="border-t"><td className="p-2">{draft.buyers.map(buyer => buyer.name).filter(Boolean).join(' y ') || 'Comprador'}</td><td className="p-2">{formatDate(item.dueDate)}</td><td className="p-2 text-right">{money(item.amount)}</td></tr>)}</tbody></table></div>}
-            <div className="space-y-3 rounded-2xl border border-[#d9ddd9] bg-[#f4f7ef] p-4">
-              <h3 className="font-semibold text-[#312144]">Datos para el modelo notarial y cobranza</h3>
-              <p className="text-xs leading-5 text-[#56604f]">Completa los datos comprobados de San Bartolomeo; cualquier campo vacío quedará señalado para revisión antes de firma.</p>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div><Label>Razón social del vendedor</Label><Input value={draft.sellerLegalName || ''} onChange={event => setValue('sellerLegalName', event.target.value)} disabled={!canEdit} className={field} /></div>
-                <div><Label>RUC del vendedor</Label><Input value={draft.sellerRuc || ''} onChange={event => setValue('sellerRuc', event.target.value.replace(/\D/g, '').slice(0, 11))} inputMode="numeric" maxLength={11} disabled={!canEdit} className={field} /></div>
-                <div><Label>Documento del representante</Label><Input value={draft.sellerRepresentativeDocument || ''} onChange={event => setValue('sellerRepresentativeDocument', event.target.value)} disabled={!canEdit} className={field} /></div>
-                <div><Label>Domicilio legal del vendedor</Label><Input value={draft.sellerAddress || ''} onChange={event => setValue('sellerAddress', event.target.value)} disabled={!canEdit} className={field} /></div>
-                <div className="sm:col-span-2"><Label>Partida registral o título del terreno</Label><Input value={draft.propertyRegistry || ''} onChange={event => setValue('propertyRegistry', event.target.value)} disabled={!canEdit} className={field} /></div>
-                <div className="sm:col-span-2"><Label>Condiciones verificadas de entrega</Label><Textarea value={draft.deliveryTerms || ''} onChange={event => setValue('deliveryTerms', event.target.value)} disabled={!canEdit} rows={2} /></div>
-                <div className="sm:col-span-2"><Label>Condiciones de mora aprobadas</Label><Textarea value={draft.lateFeeTerms || ''} onChange={event => setValue('lateFeeTerms', event.target.value)} disabled={!canEdit} rows={2} /></div>
-                <div><Label>Banco de cobranza</Label><select value={draft.bankName || ''} onChange={event => setValue('bankName', event.target.value)} disabled={!canEdit} className={`w-full border px-3 ${field}`}><option value="">Por completar</option><option value="Interbank">Interbank</option><option value="BBVA">BBVA</option></select></div>
-                <div><Label>Teléfono de cobranza</Label><Input value={draft.collectionsPhone || ''} onChange={event => setValue('collectionsPhone', event.target.value)} disabled={!canEdit} className={field} /></div>
-                <div><Label>Número de cuenta</Label><Input value={draft.bankAccount || ''} onChange={event => setValue('bankAccount', event.target.value)} disabled={!canEdit} className={field} /></div>
-                <div><Label>CCI</Label><Input value={draft.bankCci || ''} onChange={event => setValue('bankCci', event.target.value)} disabled={!canEdit} className={field} /></div>
-              </div>
-            </div>
-            <div><Label>Observaciones para revisión del documento</Label><Textarea value={draft.notes} onChange={event => setValue('notes', event.target.value)} disabled={!canEdit} rows={3} className="mt-2" /></div>
-            <div className="space-y-3 border-t border-[#e9ebe7] pt-5"><h2 className="text-lg font-semibold text-[#312144]">5. Cierre y firmas</h2><div className="grid gap-3 sm:grid-cols-3"><div><Label>Lugar de firma</Label><Input value={draft.signaturePlace || ''} onChange={event => setValue('signaturePlace', event.target.value)} disabled={!canEdit} placeholder="Ej. Lima" className={field} /></div><div><Label>Fecha de firma</Label><Input type="date" value={draft.signatureDate || ''} onChange={event => setValue('signatureDate', event.target.value)} disabled={!canEdit} className={field} /></div><div><Label>Representante de Gerencia</Label><Input value={draft.managerName || ''} onChange={event => setValue('managerName', event.target.value)} disabled={!canEdit} placeholder="Nombre completo" className={field} /></div></div></div>
+            <div className="space-y-3 border-t border-[#e9ebe7] pt-5"><h2 className="text-lg font-semibold text-[#312144]">5. Fecha y firmas</h2><div className="max-w-xs"><Label>Fecha de firma</Label><Input type="date" value={draft.signatureDate || ''} onChange={event => setValue('signatureDate', event.target.value)} disabled={!canEdit} className={field} /></div><p className="text-sm text-[#697386]">Los nombres y documentos de los compradores se repiten automáticamente en las firmas.</p></div>
             <div className="flex flex-wrap gap-3 border-t border-[#e9ebe7] pt-5">
               {canEdit && <Button variant="outline" disabled={busy} onClick={() => void handleSave()}><Save className="h-4 w-4" /> Guardar borrador</Button>}
               <Button disabled={busy} onClick={() => void handleGenerate()} className="bg-[#54317f] text-white hover:bg-[#312144]"><FileDown className="h-4 w-4" /> Generar Word para revisión</Button>
