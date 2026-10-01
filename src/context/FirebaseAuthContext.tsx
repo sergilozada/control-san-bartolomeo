@@ -557,9 +557,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (index !== cuotaIndex) return item;
       const { fechaPago: _fechaPago, ...withoutPaymentDate } = item;
       void _fechaPago;
-      return { ...withoutPaymentDate, estado: 'pendiente' as const };
+      if (user?.role !== 'admin' || item.manualMora) {
+        return { ...withoutPaymentDate, estado: 'pendiente' as const };
+      }
+      // Al revertir un pago, la mora automática pagada deja de ser un importe histórico.
+      // La cuota pendiente volverá a calcular su mora sin tocar vouchers ni boletas.
+      const { mora: _mora, manualMora: _manualMora, ...withoutPaidFee } = withoutPaymentDate;
+      void _mora;
+      void _manualMora;
+      return { ...withoutPaidFee, total: item.monto, estado: 'pendiente' as const };
     });
-    await updateQuotaWithAudit(firebaseUser, clientId, cuotas, cuotaIndex, 'pago_desmarcar');
+    if (user?.role === 'admin') {
+      await updateClientWithAudit(firebaseUser, clientId, { cuotas }, `Pago de cuota ${cuota.numero} desmarcado; cuota nuevamente pendiente`);
+    } else {
+      await updateQuotaWithAudit(firebaseUser, clientId, cuotas, cuotaIndex, 'pago_desmarcar');
+    }
   };
 
   const updateCuotaAmount = async (clientId: string, newAmount: number): Promise<void> => {
