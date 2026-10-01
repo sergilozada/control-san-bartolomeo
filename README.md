@@ -27,6 +27,8 @@ El script publica únicamente tras pasar `--apply` y requiere credenciales autor
 
 ## Desarrollo y control
 
+Las cuotas mensuales pendientes tienen siete días calendario de gracia tras el vencimiento. Desde el octavo día se muestra una mora de **S/ 2 por día** en Detalle de Cuotas, cronogramas y reporte de deudores. La inicial queda excluida. La mora de un pago se fija según su fecha de pago y no sigue creciendo; los pagos con fecha anterior al 1 de octubre de 2026 conservan la mora histórica registrada (o cero si no la tenían). Una mora ajustada manualmente por un administrador conserva prioridad. La política solo se configura en esta aplicación, no en los otros proyectos del Firebase central.
+
 ```powershell
 pnpm install
 pnpm dev

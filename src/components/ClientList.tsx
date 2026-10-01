@@ -34,6 +34,7 @@ import MinutaUploadButton from '@/components/MinutaUploadButton';
 import { NoDebtCertificateButton, ResolutionDraftButton } from '@/components/ClientDocuments';
 import { monthEnd, needsFinancialReview, type ImportedClientSource } from '@/lib/importedClients';
 import ImportedClientReview from '@/components/ImportedClientReview';
+import { getEffectiveLateFee } from '@/config/paymentPolicy';
 
 interface ClientListProps {
   filterType?: 'pending' | 'overdue' | 'all';
@@ -139,7 +140,6 @@ export default function ClientList({ filterType = 'all', onCreateMinute }: Clien
     updateClient,
     appendObservation,
     updateCuota,
-    calculateMora,
     markCuotaAsPaid,
     unmarkCuotaAsPaid,
     updateCuotaAmount,
@@ -728,12 +728,7 @@ export default function ClientList({ filterType = 'all', onCreateMinute }: Clien
     return `${day}/${month}/${year}`;
   };
 
-  const getEffectiveMora = (cuota: Cuota): number => {
-    if (cuota.numero === 0) return 0;
-    if (cuota.estado === 'pagado' && typeof cuota.mora === 'number') return cuota.mora;
-    if (cuota.manualMora === true && typeof cuota.mora === 'number') return cuota.mora;
-    return calculateMora(cuota.vencimiento, cuota.monto);
-  };
+  const getEffectiveMora = getEffectiveLateFee;
 
   // Prepare month/year options for the overdue filter
   const monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Setiembre','Octubre','Noviembre','Diciembre'];
@@ -1878,6 +1873,9 @@ export default function ClientList({ filterType = 'all', onCreateMinute }: Clien
 
                   </div>
 
+                  <p className="mx-auto w-full max-w-5xl text-xs text-[#5f6878]">
+                    Mora de cuotas: siete días de gracia después del vencimiento; desde el octavo día, S/ 2 por día. No aplica a la inicial.
+                  </p>
                   {canPay && <div className="flex w-full max-w-5xl justify-start">
                     <div className="w-full max-w-[215px] rounded-xl border border-[#d9ddd9] bg-[#f7f8f6] p-2.5 shadow-sm">
                       <Label htmlFor="paymentDate" className="block text-left text-[11px] font-semibold leading-4 text-[#5f6878]">

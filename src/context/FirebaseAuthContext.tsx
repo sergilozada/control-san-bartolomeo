@@ -25,7 +25,7 @@ import { clientMatchesTitular } from '@/types/client';
 import { createClientWithAudit, updateClientWithAudit, deleteClientWithAudit } from '@/services/audit';
 import { updateQuotaWithAudit } from '@/services/audit';
 import { canManageClients, canManageReceipts, canRegisterPayments, type UserRole } from '@/config/permissions';
-import { calculateLateFee } from '@/config/paymentPolicy';
+import { calculateLateFee, calculateLateFeeOnPayment } from '@/config/paymentPolicy';
 import type { ImportedClientSource } from '@/lib/importedClients';
 
 interface User {
@@ -527,13 +527,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const updatedCuotas = [...client.cuotas];
       const cuota = updatedCuotas[cuotaIndex];
       
-    let mora = 0;
-    if (cuota.numero === 0) mora = 0;
-    // If mora was manually set (manualMora === true) prefer that value (even 0); otherwise calculate it
-    else if (typeof cuota.mora === 'number' && (cuota as any).manualMora === true) mora = cuota.mora;
-    else mora = calculateMora(cuota.vencimiento, cuota.monto);
-
       const fechaPagoISO = formatLocalISO(fechaPago);
+      // Congelar la mora en la fecha real del abono, no en la fecha de registro.
+      const mora = cuota.numero === 0 ? 0
+        : cuota.manualMora && typeof cuota.mora === 'number' ? cuota.mora
+          : calculateLateFeeOnPayment(cuota.vencimiento, fechaPagoISO);
 
       updatedCuotas[cuotaIndex] = {
         ...cuota,

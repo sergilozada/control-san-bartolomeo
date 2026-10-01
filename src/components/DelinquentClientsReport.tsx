@@ -12,6 +12,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { Titular } from '@/types/client';
 import { getClientDisplayDnis, getClientDisplayName } from '@/types/client';
+import { getEffectiveLateFee } from '@/config/paymentPolicy';
 
 type JsPDFWithAutoTable = jsPDF & {
   lastAutoTable?: {
@@ -114,7 +115,7 @@ export default function DelinquentClientsReport() {
           client,
           overdueCuotasCount: overdueCuotas.length,
           overdueCuotas,
-          totalOverdueAmount: overdueCuotas.reduce((sum, cuota) => sum + (cuota.total || cuota.monto), 0),
+          totalOverdueAmount: overdueCuotas.reduce((sum, cuota) => sum + cuota.monto + getEffectiveLateFee(cuota, today), 0),
         };
       })
       .filter((item) => item.overdueCuotasCount > 0)
